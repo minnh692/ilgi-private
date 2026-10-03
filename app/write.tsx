@@ -47,23 +47,30 @@ export default function WriteScreen() {
   const inputRef = useRef<TextInput>(null);
   const hasConsent = !!profile?.consent_ai_at;
 
-  // Load persisted draft
+  // Load persisted draft and apply profile default memory mode
   useEffect(() => {
+    // Apply profile default mode if not already set
+    if (profile?.default_memory_mode) {
+      setMemoryMode(profile.default_memory_mode as MemoryMode);
+    }
+
     AsyncStorage.getItem(DRAFT_KEY).then((saved) => {
       if (saved && !content) {
         try {
-          const parsed = JSON.parse(saved);
+          const parsed = JSON.parse(saved) as { content?: string; mood?: number; memoryMode?: MemoryMode };
           if (parsed.content) setContent(parsed.content);
           if (parsed.mood) setMood(parsed.mood);
+          if (parsed.memoryMode) setMemoryMode(parsed.memoryMode);
         } catch {}
       }
     });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Autosave draft
   useEffect(() => {
     const timer = setTimeout(() => {
-      AsyncStorage.setItem(DRAFT_KEY, JSON.stringify({ content, mood }));
+      AsyncStorage.setItem(DRAFT_KEY, JSON.stringify({ content, mood, memoryMode }));
     }, 500);
     return () => clearTimeout(timer);
   }, [content, mood]);

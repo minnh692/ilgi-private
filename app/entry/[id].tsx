@@ -280,18 +280,18 @@ export default function EntryDetailScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       <View style={[styles.header, { paddingHorizontal: spacing.base, borderBottomColor: colors.border }]}>
-        <Pressable
-          onPress={() => router.back()}
-          accessibilityRole="button"
-          accessibilityLabel="뒤로"
-        >
+        <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="뒤로">
           <Text style={[styles.backBtn, { color: colors.accent, fontFamily: typography.fontFamily.medium }]}>
             ← 뒤로
           </Text>
         </Pressable>
-        <Pressable onPress={confirmDelete} accessibilityRole="button" accessibilityLabel="삭제">
-          <Text style={[styles.deleteBtn, { color: colors.error, fontFamily: typography.fontFamily.regular }]}>
-            삭제
+        <Pressable
+          onPress={() => router.push(`/entry/edit/${id}`)}
+          accessibilityRole="button"
+          accessibilityLabel="수정"
+        >
+          <Text style={[styles.editBtn, { color: colors.accent, fontFamily: typography.fontFamily.medium }]}>
+            수정
           </Text>
         </Pressable>
       </View>
@@ -311,7 +311,7 @@ export default function EntryDetailScreen() {
               borderRadius: radius.lg,
               padding: spacing.base,
               marginTop: spacing.sm,
-              marginBottom: spacing.xl,
+              marginBottom: spacing.md,
               ...shadow.sm,
             },
           ]}
@@ -321,12 +321,48 @@ export default function EntryDetailScreen() {
           </Text>
         </View>
 
+        {/* Entry actions row */}
+        <View style={[styles.entryActions, { marginBottom: spacing.xl }]}>
+          <Pressable
+            onPress={confirmDelete}
+            accessibilityRole="button"
+            accessibilityLabel="삭제"
+          >
+            <Text style={[styles.actionBtn, { color: colors.error, fontFamily: typography.fontFamily.regular }]}>
+              삭제
+            </Text>
+          </Pressable>
+        </View>
+
         {entry.memory_mode !== 'private' && (
           <>
             {generateMutation.isPending || (replyLoading && reply === null) ? (
               <GeneratingReply />
             ) : reply ? (
-              <ReplyCard reply={reply} isFirstEntry={isFirstEntry && entry.memory_mode === 'remember'} />
+              <>
+                <ReplyCard reply={reply} isFirstEntry={isFirstEntry && entry.memory_mode === 'remember'} />
+                {/* Regenerate button — costs one quota */}
+                <Pressable
+                  onPress={() => {
+                    Alert.alert(
+                      '답장 다시 받기',
+                      '새 답장을 받으면 횟수가 차감돼요. 계속할까요?',
+                      [
+                        { text: '취소', style: 'cancel' },
+                        { text: '다시 받기', onPress: () => generateMutation.mutate() },
+                      ],
+                    );
+                  }}
+                  disabled={generateMutation.isPending}
+                  style={[styles.regenBtn, { borderColor: colors.border }]}
+                  accessibilityRole="button"
+                  accessibilityLabel="답장 다시 받기"
+                >
+                  <Text style={[styles.regenBtnText, { color: colors.subtext, fontFamily: typography.fontFamily.regular }]}>
+                    답장 다시 받기
+                  </Text>
+                </Pressable>
+              </>
             ) : null}
           </>
         )}
@@ -350,8 +386,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   backBtn: { fontSize: 16 },
-  deleteBtn: { fontSize: 14 },
+  editBtn: { fontSize: 16 },
   dateStr: { fontSize: 14, marginBottom: 4 },
+  entryActions: { flexDirection: 'row', justifyContent: 'flex-end' },
+  actionBtn: { fontSize: 14, padding: 4 },
+  regenBtn: { marginTop: 12, borderWidth: 1, borderRadius: 8, padding: 12, alignItems: 'center' },
+  regenBtnText: { fontSize: 14 },
   entryBox: {},
   entryContent: { fontSize: 16, lineHeight: 28 },
   replyCard: {},
