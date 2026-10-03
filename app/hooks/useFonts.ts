@@ -2,10 +2,10 @@ import { useFonts as useExpoFonts } from 'expo-font';
 
 export function useFonts() {
   const [loaded] = useExpoFonts({
-    'Pretendard-Regular': require('../../assets/fonts/Pretendard-Regular.otf'),
-    'Pretendard-Medium': require('../../assets/fonts/Pretendard-Medium.otf'),
-    'Pretendard-SemiBold': require('../../assets/fonts/Pretendard-SemiBold.otf'),
-    'Pretendard-Bold': require('../../assets/fonts/Pretendard-Bold.otf'),
+    'Pretendard-Regular': require('pretendard/dist/public/static/Pretendard-Regular.otf'),
+    'Pretendard-Medium': require('pretendard/dist/public/static/Pretendard-Medium.otf'),
+    'Pretendard-SemiBold': require('pretendard/dist/public/static/Pretendard-SemiBold.otf'),
+    'Pretendard-Bold': require('pretendard/dist/public/static/Pretendard-Bold.otf'),
   });
   return loaded;
 }
