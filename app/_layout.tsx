@@ -9,8 +9,15 @@ import { useColorScheme } from 'react-native';
 import { queryClient } from '@/lib/queryClient';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/authStore';
+import { useProfile } from '@/hooks/useProfile';
 import { palette } from '@/theme/tokens';
 import { useFonts } from './hooks/useFonts';
+
+function AuthGate({ children }: { children: React.ReactNode }) {
+  // Loads profile whenever the session user changes
+  useProfile();
+  return <>{children}</>;
+}
 
 export default function RootLayout() {
   const scheme = useColorScheme();
@@ -20,11 +27,12 @@ export default function RootLayout() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
-      setLoading(false);
+      if (!data.session) setLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      if (!session) setLoading(false);
     });
 
     return () => subscription.unsubscribe();
@@ -37,34 +45,36 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <GestureHandlerRootView style={{ flex: 1 }}>
           <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: {
-                backgroundColor: scheme === 'dark' ? palette.darkBg : palette.cream,
-              },
-            }}
-          >
-            <Stack.Screen name="index" />
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen
-              name="write"
-              options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
-            />
-            <Stack.Screen
-              name="entry/[id]"
-              options={{ animation: 'slide_from_right' }}
-            />
-            <Stack.Screen
-              name="paywall"
-              options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
-            />
-            <Stack.Screen
-              name="settings"
-              options={{ animation: 'slide_from_right' }}
-            />
-            <Stack.Screen name="onboarding" />
-          </Stack>
+          <AuthGate>
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                contentStyle: {
+                  backgroundColor: scheme === 'dark' ? palette.darkBg : palette.cream,
+                },
+              }}
+            >
+              <Stack.Screen name="index" />
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen
+                name="write"
+                options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+              />
+              <Stack.Screen
+                name="entry/[id]"
+                options={{ animation: 'slide_from_right' }}
+              />
+              <Stack.Screen
+                name="paywall"
+                options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+              />
+              <Stack.Screen
+                name="settings"
+                options={{ animation: 'slide_from_right' }}
+              />
+              <Stack.Screen name="onboarding" />
+            </Stack>
+          </AuthGate>
         </GestureHandlerRootView>
       </SafeAreaProvider>
     </QueryClientProvider>

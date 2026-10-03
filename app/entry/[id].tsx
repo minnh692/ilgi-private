@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -6,15 +6,18 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '@/theme/useTheme';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/authStore';
+import { SavePrompt } from '../components/SavePrompt';
 import type { Database } from '@/types/database';
+import Constants from 'expo-constants';
 
 type Entry = Database['public']['Tables']['entries']['Row'];
 type Reply = Database['public']['Tables']['replies']['Row'];
 
-function ReplyCard({ reply }: { reply: Reply }) {
+const SUPABASE_URL = Constants.expoConfig?.extra?.supabaseUrl as string;
+
+function ReplyCard({ reply, isFirstEntry }: { reply: Reply; isFirstEntry: boolean }) {
   const { colors, typography, spacing, radius, shadow } = useTheme();
   const qc = useQueryClient();
-  const user = useAuthStore((s) => s.user);
 
   const rateMutation = useMutation({
     mutationFn: async (rating: number) => {
@@ -26,6 +29,9 @@ function ReplyCard({ reply }: { reply: Reply }) {
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['reply', reply.entry_id] }),
   });
+
+  // "기억해둘게요" block — shown only on the first entry in remember mode
+  const memoryNote = isFirstEntry && reply.kind === 'normal' ? extractMemoryNote(reply.content) : null;
 
   return (
     <View
@@ -45,6 +51,18 @@ function ReplyCard({ reply }: { reply: Reply }) {
       <Text style={[styles.replyContent, { color: colors.text, fontFamily: typography.fontFamily.regular }]}>
         {reply.content}
       </Text>
+
+      {memoryNote && (
+        <View style={[styles.memoryNote, { backgroundColor: colors.accentLight, borderRadius: radius.md }]}>
+          <Text style={[styles.memoryNoteTitle, { color: colors.accent, fontFamily: typography.fontFamily.semiBold }]}>
+            기억해둘게요 📝
+          </Text>
+          <Text style={[styles.memoryNoteBody, { color: colors.text, fontFamily: typography.fontFamily.regular }]}>
+            {memoryNote}
+          </Text>
+        </View>
+      )}
+
       <View style={styles.ratingRow}>
         {[
           { rating: 1, label: '도움이 됐어요', emoji: '👍' },
@@ -75,6 +93,14 @@ function ReplyCard({ reply }: { reply: Reply }) {
   );
 }
 
+// Extracts 2 concrete things the AI will remember (for first-entry block).
+// In production the prompt should structure these; here we show a friendly placeholder.
+function extractMemoryNote(content: string): string {
+  const sentences = content.split(/[.。]/g).map((s) => s.trim()).filter(Boolean);
+  const picks = sentences.slice(0, 2).join('. ');
+  return picks ? `오늘 일기에서 기억해둘 것들을 정리했어요.\n• 오늘 겪은 일과 감정\n• 앞으로 답장에 참고할게요` : '';
+}
+
 function GeneratingReply() {
   const { colors, typography, spacing, radius } = useTheme();
   return (
@@ -100,7 +126,13 @@ export default function EntryDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colors, typography, spacing, radius, shadow } = useTheme();
   const user = useAuthStore((s) => s.user);
+  const profile = useAuthStore((s) => s.profile);
+  const setProfile = useAuthStore((s) => s.setProfile);
   const qc = useQueryClient();
+
+  const [savePromptVisible, setSavePromptVisible] = useState(false);
+
+  const isAnonymous = user?.is_anonymous ?? true;
 
   const { data: entry, isLoading: entryLoading } = useQuery({
     queryKey: ['entry', id],
@@ -128,17 +160,44 @@ export default function EntryDetailScreen() {
       return data as Reply | null;
     },
     enabled: !!id,
-    // Poll while reply is generating
     refetchInterval: (query) => (query.state.data == null ? 3000 : false),
     refetchIntervalInBackground: false,
   });
 
-  // Trigger reply generation when entry loads and no reply exists
+  // Show save prompt after reply appears (first entry) or after 3rd entry
+  useEffect(() => {
+    if (!reply || !isAnonymous) return;
+    const state = (profile?.onboarding_state as Record<string, unknown>) ?? {};
+    const savePromptShown = state.savePromptShown as boolean | undefined;
+    const entryCount = state.entryCount as number | undefined;
+
+    const isFirstEntry = !savePromptShown;
+    const isThirdEntry = !savePromptShown && (entryCount ?? 0) >= 3;
+
+    if (isFirstEntry || isThirdEntry) {
+      const timer = setTimeout(() => setSavePromptVisible(true), 1200);
+      return () => clearTimeout(timer);
+    }
+  }, [reply?.id, isAnonymous]);
+
+  async function markSavePromptShown() {
+    setSavePromptVisible(false);
+    if (!user) return;
+    const current = (profile?.onboarding_state as Record<string, unknown>) ?? {};
+    const { data } = await supabase
+      .from('profiles')
+      .update({ onboarding_state: { ...current, savePromptShown: true } })
+      .eq('id', user.id)
+      .select()
+      .maybeSingle();
+    if (data) setProfile(data as typeof profile);
+  }
+
   const generateMutation = useMutation({
     mutationFn: async () => {
       const { data: { session } } = await supabase.auth.getSession();
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/generate-reply`,
+        `${SUPABASE_URL}/functions/v1/generate-reply`,
         {
           method: 'POST',
           headers: {
@@ -149,7 +208,7 @@ export default function EntryDetailScreen() {
         }
       );
       if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
+        const err = await response.json().catch(() => ({})) as { error?: string };
         throw new Error(err.error ?? 'Failed to generate reply');
       }
       return response.json();
@@ -162,7 +221,6 @@ export default function EntryDetailScreen() {
     },
   });
 
-  // Auto-trigger generation once entry is loaded and no reply
   const hasTriggered = useRef(false);
   if (entry && !replyLoading && reply === null && !generateMutation.isPending && !hasTriggered.current) {
     hasTriggered.current = true;
@@ -189,6 +247,19 @@ export default function EntryDetailScreen() {
     ]);
   }
 
+  // Count total entries to know if this is the first
+  const { data: entryCount = 0 } = useQuery({
+    queryKey: ['entry_count', user?.id],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from('entries')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user!.id);
+      return count ?? 0;
+    },
+    enabled: !!user,
+  });
+
   if (entryLoading || !entry) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
@@ -203,6 +274,8 @@ export default function EntryDetailScreen() {
     day: 'numeric',
     weekday: 'long',
   });
+
+  const isFirstEntry = entryCount <= 1;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
@@ -253,11 +326,16 @@ export default function EntryDetailScreen() {
             {generateMutation.isPending || (replyLoading && reply === null) ? (
               <GeneratingReply />
             ) : reply ? (
-              <ReplyCard reply={reply} />
+              <ReplyCard reply={reply} isFirstEntry={isFirstEntry && entry.memory_mode === 'remember'} />
             ) : null}
           </>
         )}
       </ScrollView>
+
+      <SavePrompt
+        visible={savePromptVisible}
+        onDismiss={markSavePromptShown}
+      />
     </SafeAreaView>
   );
 }
@@ -279,6 +357,9 @@ const styles = StyleSheet.create({
   replyCard: {},
   replyLabel: { fontSize: 12, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
   replyContent: { fontSize: 16, lineHeight: 28, marginBottom: 20 },
+  memoryNote: { padding: 14, marginBottom: 16 },
+  memoryNoteTitle: { fontSize: 14, marginBottom: 6 },
+  memoryNoteBody: { fontSize: 14, lineHeight: 21 },
   ratingRow: { flexDirection: 'row', gap: 10 },
   ratingBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 14, borderWidth: 1 },
   ratingEmoji: { fontSize: 18 },

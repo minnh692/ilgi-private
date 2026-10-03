@@ -1,9 +1,11 @@
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Switch } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useTheme } from '@/theme/useTheme';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/authStore';
+import { useAppleSignIn } from '@/hooks/useAppleSignIn';
+import { APPLE_AUTH_MOCK } from '@/lib/appleAuth';
 import { CRISIS_RESOURCES } from '../config/crisisResources';
 
 function SettingRow({
@@ -67,6 +69,8 @@ export default function SettingsScreen() {
 
   const isAnonymous = user?.is_anonymous;
   const isPlus = profile?.plan === 'plus';
+
+  const { isLoading: appleLoading, trigger: triggerApple } = useAppleSignIn();
 
   async function handleSignOut() {
     Alert.alert('로그아웃', '로그아웃할까요?', [
@@ -146,18 +150,25 @@ export default function SettingsScreen() {
         <SectionHeader title="계정" colors={colors} typography={typography} />
 
         {isAnonymous ? (
-          <SettingRow
-            label="Apple로 계정 연결"
-            value="→"
-            onPress={() => Alert.alert('준비 중', 'Apple 계정 연결 기능이 곧 추가돼요.')}
-            colors={colors}
-            typography={typography}
-            spacing={spacing}
-          />
+          <Pressable
+            onPress={triggerApple}
+            disabled={appleLoading}
+            style={[styles.row, { paddingVertical: spacing.base, borderBottomColor: colors.border }]}
+            accessibilityRole="button"
+            accessibilityLabel="Apple로 계정 연결"
+          >
+            <Text style={[styles.rowLabel, { color: colors.text, fontFamily: typography.fontFamily.regular }]}>
+              {APPLE_AUTH_MOCK ? 'Apple로 계정 연결 (개발 모드)' : ' Apple로 계정 연결'}
+            </Text>
+            {appleLoading
+              ? <ActivityIndicator size="small" color={colors.accent} />
+              : <Text style={[styles.rowValue, { color: colors.subtext }]}>→</Text>
+            }
+          </Pressable>
         ) : (
           <SettingRow
             label="Apple 계정 연결됨"
-            value={user?.email ?? ''}
+            value={user?.email ?? '연결됨'}
             onPress={() => {}}
             colors={colors}
             typography={typography}
