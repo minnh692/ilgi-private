@@ -11,8 +11,8 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.munui.app",
       "usesAppleSignIn": true,
-      "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+      "config": {
+        "usesNonExemptEncryption": false
       }
     },
     "android": {
