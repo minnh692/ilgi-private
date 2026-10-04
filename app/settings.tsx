@@ -443,8 +443,8 @@ export default function SettingsScreen() {
         <SectionHeader title="고객지원" colors={colors} typography={typography} />
         <SettingRow
           label="문의하기"
-          value="이메일 →"
-          onPress={() => Linking.openURL('mailto:ilgi.support@gmail.com?subject=무늬 앱 문의')}
+          value="→"
+          onPress={() => Linking.openURL('https://muni-diary.vercel.app/')}
           colors={colors}
           typography={typography}
           spacing={spacing}
