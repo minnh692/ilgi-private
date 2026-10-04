@@ -1,0 +1,14 @@
+{
+  "id": "sequence_01b",
+  "scenario": "sequence_memory_use",
+  "plan": "plus",
+  "memory_mode": "remember",
+  "content": "은호가 오늘 내 업무 아이디어를 팀 전체 앞에서 자기 것처럼 발표했다. 처음엔 잘 못 들은 건가 싶었는데, 발표 자료에 내 이름이 하나도 없었다. 좋게 봤던 사람한테 이런 일이 생기니까 더 배신감이 크다.",
+  "fixture_memory": [
+    { "category": "person_pattern", "content": "은호 — 팀 동료, 처음엔 잘 맞는다고 느꼈음" }
+  ],
+  "fixture_recent": "은호와 처음 일했고 잘 맞을 것 같아 좋았다고 함",
+  "expected": { "safety": "none", "min_chars": 100, "max_chars": 900 },
+  "sequence_id": "seq_01",
+  "sequence_index": 2
+}

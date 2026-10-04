@@ -1,0 +1,10 @@
+{
+  "id": "ko_en_01",
+  "scenario": "korean_english_mixed",
+  "plan": "free",
+  "memory_mode": "remember",
+  "content": "오늘 팀 회의에서 내가 발표한 project proposal이 꽤 좋은 feedback을 받았다. 팀장이 \"이 direction 좋은데\"라고 해서 솔직히 엄청 relieved했다. 퇴근하면서 이어폰 끼고 favorite playlist 들으면서 걸어오는데 기분이 좋았다. 오늘같은 날은 work-life balance가 좀 맞는 느낌이다.",
+  "fixture_memory": [],
+  "fixture_recent": "(no prior entries)",
+  "expected": { "safety": "none", "min_chars": 100, "max_chars": 900 }
+}

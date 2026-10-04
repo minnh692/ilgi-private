@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Authenticate as the NEW (Apple) user
+    // Authenticate as the NEW (social login) user
     const auth = req.headers.get('Authorization');
     if (!auth?.startsWith('Bearer ')) return errorResponse('Unauthorized', 401);
 
@@ -30,22 +30,24 @@ Deno.serve(async (req) => {
     const { data: { user: newUser } } = await userSupabase.auth.getUser();
     if (!newUser) return errorResponse('Unauthorized', 401);
 
-    const { anonymousUserId } = await req.json();
-    if (!anonymousUserId || typeof anonymousUserId !== 'string') {
-      return errorResponse('anonymousUserId required', 400);
+    // Ownership proof: the caller must present the anonymous session's own access token.
+    // A bare user id is not enough — otherwise anyone who learned an anonymous id could take its diary.
+    const { anonymousAccessToken } = await req.json();
+    if (!anonymousAccessToken || typeof anonymousAccessToken !== 'string') {
+      return errorResponse('anonymousAccessToken required', 400);
     }
+
+    const service = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+
+    const { data: { user: anonUser } } = await service.auth.getUser(anonymousAccessToken);
+    if (!anonUser) return errorResponse('Invalid anonymous session', 401);
+    if (!anonUser.is_anonymous) return errorResponse('Source user is not anonymous', 400);
+    const anonymousUserId = anonUser.id;
 
     // Prevent self-claim
     if (anonymousUserId === newUser.id) {
       return jsonResponse({ skipped: true, reason: 'same user' });
     }
-
-    const service = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-
-    // Verify the old user was actually anonymous
-    const { data: anonUser } = await service.auth.admin.getUserById(anonymousUserId);
-    if (!anonUser?.user) return errorResponse('Anonymous user not found', 404);
-    if (!anonUser.user.is_anonymous) return errorResponse('Source user is not anonymous', 400);
 
     // Migrate all user_id-linked data to the new user
     for (const table of USER_ID_TABLES) {
@@ -88,7 +90,7 @@ Deno.serve(async (req) => {
     // Delete the anonymous auth user
     await service.auth.admin.deleteUser(anonymousUserId);
 
-    console.log(`Migrated data from anonymous ${anonymousUserId} to ${newUser.id}`);
+    console.log(JSON.stringify({ fn: 'claim-anonymous-data', migrated: true }));
     return jsonResponse({ migrated: true });
 
   } catch (err) {

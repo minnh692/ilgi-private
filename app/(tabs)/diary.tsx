@@ -1,21 +1,27 @@
 import { useMemo } from 'react';
-import { View, Text, StyleSheet, SectionList, TouchableOpacity, Pressable } from 'react-native';
+import { View, Text, StyleSheet, SectionList, TouchableOpacity, Pressable, ActivityIndicator } from 'react-native';
 import { Link } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { useTheme } from '@/theme/useTheme';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/authStore';
-import type { Database } from '@/types/database';
+import type { Database, MemoryMode } from '@/types/database';
+import { palette } from '@/theme/tokens';
+import { ModeIcon } from '@/components/ModeIcon';
+import Pencil from '../../assets/brand/svg/muni-pencil.svg';
 
 type EntryRow = Database['public']['Tables']['entries']['Row'];
 type EntryWithReply = EntryRow & { replies: { id: string }[] };
 
+// Timeline loads in pages so a long diary history isn't fetched all at once
+const PAGE_SIZE = 30;
+
 const MOOD_COLORS = ['#E07A5F', '#F4C842', '#7EC8A4', '#7EB5D4', '#C39BD3'] as const;
-const MODE_ICON: Record<string, string> = {
-  remember: '🧠',
-  reply_only: '💬',
-  private: '🔒',
+const MODE_LABEL: Record<string, string> = {
+  remember: '기억하고 답장',
+  reply_only: '답장만',
+  private: '나만 보기',
 };
 
 function MoodDot({ mood }: { mood: number | null }) {
@@ -36,7 +42,7 @@ function EntryCard({ entry }: { entry: EntryWithReply }) {
   return (
     <Link href={`/entry/${entry.id}`} asChild>
       <Pressable
-        style={[
+        style={StyleSheet.flatten([
           styles.card,
           {
             backgroundColor: colors.surface,
@@ -46,7 +52,7 @@ function EntryCard({ entry }: { entry: EntryWithReply }) {
             marginBottom: spacing.sm,
             ...shadow.sm,
           },
-        ]}
+        ])}
         accessibilityRole="button"
         accessibilityLabel="일기 보기"
       >
@@ -58,14 +64,25 @@ function EntryCard({ entry }: { entry: EntryWithReply }) {
                 accessibilityLabel="AI 답장 있음"
               />
             )}
-            <Text style={styles.modeIcon} accessibilityLabel={`기록 방식: ${entry.memory_mode}`}>
-              {MODE_ICON[entry.memory_mode] ?? ''}
-            </Text>
+            <ModeIcon
+              mode={entry.memory_mode as MemoryMode}
+              size={16}
+              color={colors.subtext}
+              accessibilityLabel={`기록 방식: ${MODE_LABEL[entry.memory_mode] ?? entry.memory_mode}`}
+            />
           </View>
         </View>
+        {entry.title ? (
+          <Text
+            style={[styles.cardTitle, { color: colors.text, fontFamily: typography.fontFamily.semiBold }]}
+            numberOfLines={1}
+          >
+            {entry.title}
+          </Text>
+        ) : null}
         <Text
-          style={[styles.cardPreview, { color: colors.text, fontFamily: typography.fontFamily.regular }]}
-          numberOfLines={3}
+          style={[styles.cardPreview, { color: entry.title ? colors.subtext : colors.text, fontFamily: typography.fontFamily.regular }]}
+          numberOfLines={entry.title ? 2 : 3}
         >
           {preview}
         </Text>
@@ -97,6 +114,7 @@ function EmptyDiary() {
 
   return (
     <View style={[styles.empty, { paddingTop: spacing['3xl'], paddingHorizontal: spacing.xl }]}>
+      <Pencil width={96} height={96} style={styles.emptyArt} accessibilityElementsHidden importantForAccessibility="no" />
       <Text style={[styles.emptyTitle, { color: colors.text, fontFamily: typography.fontFamily.semiBold }]}>
         오늘 하루 어떠셨나요?
       </Text>
@@ -104,7 +122,7 @@ function EmptyDiary() {
         {prompt}
       </Text>
       <Text style={[styles.emptyHint, { color: colors.softGray, fontFamily: typography.fontFamily.regular }]}>
-        AI가 따뜻한 답장을 써드려요.
+        AI 고양이 무늬가 따뜻한 답장을 써드려요.
       </Text>
     </View>
   );
@@ -129,21 +147,33 @@ export default function DiaryTab() {
   const { colors, typography, spacing } = useTheme();
   const user = useAuthStore((s) => s.user);
 
-  const { data: entries = [] } = useQuery({
+  const {
+    data, isLoading, isError, refetch, fetchNextPage, hasNextPage, isFetchingNextPage,
+  } = useInfiniteQuery({
     queryKey: ['entries', user?.id],
-    queryFn: async () => {
+    initialPageParam: 0,
+    queryFn: async ({ pageParam }) => {
       if (!user) return [];
       const { data, error } = await supabase
         .from('entries')
         .select('*, replies(id)')
         .eq('user_id', user.id)
         .order('entry_date', { ascending: false })
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(pageParam, pageParam + PAGE_SIZE - 1);
       if (error) throw error;
       return (data as unknown) as EntryWithReply[];
     },
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.length < PAGE_SIZE ? undefined : allPages.length * PAGE_SIZE,
     enabled: !!user,
   });
+
+  // Offset paging can repeat a row if an entry is added mid-scroll — dedupe by id
+  const entries = useMemo(() => {
+    const seen = new Set<string>();
+    return (data?.pages.flat() ?? []).filter((e) => !seen.has(e.id) && !!seen.add(e.id));
+  }, [data]);
 
   const sections = useMemo(() => groupByDate(entries), [entries]);
 
@@ -155,7 +185,29 @@ export default function DiaryTab() {
         </Text>
       </View>
 
-      {entries.length === 0 ? (
+      {isLoading ? (
+        <View style={styles.centered}>
+          <Text style={[styles.loadingText, { color: colors.subtext, fontFamily: typography.fontFamily.regular }]}>
+            불러오는 중...
+          </Text>
+        </View>
+      ) : isError ? (
+        <View style={styles.centered}>
+          <Text style={[styles.errorText, { color: colors.subtext, fontFamily: typography.fontFamily.regular }]}>
+            불러오지 못했어요
+          </Text>
+          <Pressable
+            onPress={() => refetch()}
+            style={[styles.retryBtn, { borderColor: colors.border }]}
+            accessibilityRole="button"
+            accessibilityLabel="다시 시도"
+          >
+            <Text style={[styles.retryText, { color: colors.accent, fontFamily: typography.fontFamily.medium }]}>
+              다시 시도
+            </Text>
+          </Pressable>
+        </View>
+      ) : entries.length === 0 ? (
         <EmptyDiary />
       ) : (
         <SectionList
@@ -165,16 +217,21 @@ export default function DiaryTab() {
           renderSectionHeader={({ section }) => <DateHeader title={section.title} />}
           stickySectionHeadersEnabled={false}
           contentContainerStyle={{ paddingTop: spacing.sm, paddingBottom: 100 }}
+          onEndReached={() => {
+            if (hasNextPage && !isFetchingNextPage) fetchNextPage();
+          }}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={isFetchingNextPage ? <ActivityIndicator style={{ marginVertical: spacing.base }} color={colors.accent} /> : null}
         />
       )}
 
       <Link href="/write" asChild>
         <TouchableOpacity
-          style={[styles.fab, { backgroundColor: colors.accent }]}
+          style={StyleSheet.flatten([styles.fab, { backgroundColor: palette.muzzle, borderColor: palette.ink }])}
           accessibilityRole="button"
           accessibilityLabel="새 일기 쓰기"
         >
-          <Text style={styles.fabIcon}>✏️</Text>
+          <Pencil width={36} height={36} />
         </TouchableOpacity>
       </Link>
     </SafeAreaView>
@@ -189,20 +246,25 @@ const styles = StyleSheet.create({
   card: {},
   cardMeta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   cardIcons: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  cardTitle: { fontSize: 16, lineHeight: 23, marginBottom: 2 },
   cardPreview: { fontSize: 15, lineHeight: 23 },
   moodDot: { width: 10, height: 10, borderRadius: 5 },
   replyDot: { width: 7, height: 7, borderRadius: 3.5 },
-  modeIcon: { fontSize: 13 },
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  loadingText: { fontSize: 15 },
+  errorText: { fontSize: 15 },
+  retryBtn: { borderWidth: 1, borderRadius: 8, paddingVertical: 10, paddingHorizontal: 24 },
+  retryText: { fontSize: 15 },
   empty: { flex: 1, alignItems: 'center' },
+  emptyArt: { marginBottom: 20 },
   emptyTitle: { fontSize: 20, marginBottom: 12, textAlign: 'center' },
   emptyPrompt: { fontSize: 16, lineHeight: 25, textAlign: 'center', marginBottom: 10 },
   emptyHint: { fontSize: 14, textAlign: 'center' },
   fab: {
     position: 'absolute', bottom: 24, right: 24,
-    width: 56, height: 56, borderRadius: 28,
+    width: 60, height: 60, borderRadius: 30, borderWidth: 2,
     alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#3D2B1F', shadowOffset: { width: 0, height: 4 },
+    shadowColor: palette.ink, shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2, shadowRadius: 8, elevation: 6,
   },
-  fabIcon: { fontSize: 22 },
 });

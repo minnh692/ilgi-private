@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 300">
+  <g transform="translate(-10,-12) scale(0.6)">
+  <defs>
+    <clipPath id="head">
+      <ellipse cx="256" cy="292" rx="180" ry="152"/>
+    </clipPath>
+  </defs>
+  <!-- outline layer -->
+  <g fill="#3A2E2A" stroke="#3A2E2A" stroke-width="46" stroke-linejoin="round">
+    <ellipse cx="256" cy="292" rx="168" ry="140"/>
+    <polygon points="118,210 138,92 226,160"/>
+    <polygon points="394,210 374,92 286,160"/>
+  </g>
+  <!-- fur fill -->
+  <g fill="#F4A259" stroke="#F4A259" stroke-width="24" stroke-linejoin="round">
+    <ellipse cx="256" cy="292" rx="168" ry="140"/>
+    <polygon points="118,210 138,92 226,160"/>
+    <polygon points="394,210 374,92 286,160"/>
+  </g>
+  <!-- inner ears -->
+  <g fill="#F7B7A3" stroke="#F7B7A3" stroke-width="12" stroke-linejoin="round">
+    <polygon points="142,184 150,128 190,158"/>
+    <polygon points="370,184 362,128 322,158"/>
+  </g>
+  <!-- tabby stripes (the 무늬) -->
+  <g clip-path="url(#head)" fill="none" stroke="#D97B3C" stroke-width="16" stroke-linecap="round">
+    <path d="M256 132 C 249 160 263 184 256 212"/>
+    <path d="M212 140 C 205 160 219 178 214 198"/>
+    <path d="M300 140 C 307 160 293 178 298 198"/>
+    <path d="M70 292 Q 96 286 120 296"/>
+    <path d="M74 330 Q 98 326 116 336"/>
+    <path d="M442 292 Q 416 286 392 296"/>
+    <path d="M438 330 Q 414 326 396 336"/>
+  </g>
+  <!-- muzzle -->
+  <ellipse cx="256" cy="348" rx="66" ry="46" fill="#FFF6EA"/>
+  <!-- blush -->
+  <ellipse cx="160" cy="336" rx="24" ry="13" fill="#F7B7A3"/>
+  <ellipse cx="352" cy="336" rx="24" ry="13" fill="#F7B7A3"/>
+  <!-- closed, content eyes -->
+  <g fill="none" stroke="#3A2E2A" stroke-width="13" stroke-linecap="round">
+    <path d="M168 284 Q 196 312 224 284"/>
+    <path d="M288 284 Q 316 312 344 284"/>
+  </g>
+  <!-- nose + mouth -->
+  <path d="M243 326 L269 326 L256 341 Z" fill="#E0786A" stroke="#E0786A" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M230 352 Q 243 366 256 350 Q 269 366 282 352" fill="none" stroke="#3A2E2A" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+  <g transform="translate(340,18)">
+  <g fill="none" stroke="#3A2E2A" stroke-width="30" stroke-linecap="round" stroke-linejoin="round">
+    <!-- 무: ㅁ with cat ears -->
+    <rect x="40" y="66" width="122" height="68" rx="12"/>
+    <!-- ㅜ -->
+    <path d="M18 182 H184"/>
+    <path d="M101 182 V238"/>
+    <!-- 늬: ㄴ -->
+    <path d="M236 52 V130 H334"/>
+    <!-- ㅡ -->
+    <path d="M222 186 H350"/>
+    <!-- ㅣ with a curled cat tail -->
+    <path d="M400 34 V196 C400 238 448 244 452 206"/>
+  </g>
+  <!-- ears -->
+  <g fill="#3A2E2A" stroke="#3A2E2A" stroke-width="10" stroke-linejoin="round">
+    <polygon points="46,56 52,22 80,48"/>
+    <polygon points="156,56 150,22 122,48"/>
+  </g>
+</g>
+</svg>

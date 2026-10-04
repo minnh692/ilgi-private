@@ -1,0 +1,15 @@
+{
+  "id": "sequence_01c",
+  "scenario": "sequence_memory_use",
+  "plan": "plus",
+  "memory_mode": "remember",
+  "content": "은호한테 직접 이야기했다. 많이 긴장했는데, 은호는 생각보다 솔직하게 잘못을 인정했다. 앞으로는 같이 이름 올리자고 했고. 아직 완전히 신뢰가 회복된 건 아니지만 일단 풀렸다. 이런 대화가 이렇게 잘 끝날 수도 있구나 싶었다.",
+  "fixture_memory": [
+    { "category": "person_pattern", "content": "은호 — 팀 동료, 업무 아이디어를 무단으로 발표한 적 있음, 이후 직접 대화로 갈등 해결 중" },
+    { "category": "what_helps", "content": "직접 대화로 갈등을 해결하는 방식이 자신에게 맞음" }
+  ],
+  "fixture_recent": "은호가 업무 아이디어를 자기 것처럼 발표해서 배신감을 느꼈다고 함",
+  "expected": { "safety": "none", "min_chars": 100, "max_chars": 900 },
+  "sequence_id": "seq_01",
+  "sequence_index": 3
+}

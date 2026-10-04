@@ -8,7 +8,7 @@ export function useTheme() {
   const colors = {
     ...palette,
     background: dark ? palette.darkBg : palette.cream,
-    surface: dark ? palette.darkSurface : palette.white,
+    surface: dark ? palette.darkSurface : palette.muzzle,
     surfaceAlt: dark ? palette.darkSurface : palette.paper,
     border: dark ? palette.darkBorder : palette.borderGray,
     text: dark ? palette.darkText : palette.inkBrown,
@@ -18,7 +18,7 @@ export function useTheme() {
     accentLight: dark ? palette.accentDark : palette.accentLight,
     error: palette.error,
     errorLight: palette.errorLight,
-    tabBar: dark ? palette.darkSurface : palette.white,
+    tabBar: dark ? palette.darkSurface : palette.muzzle,
     tabBarBorder: dark ? palette.darkBorder : palette.borderGray,
   };
 

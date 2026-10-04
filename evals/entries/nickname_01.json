@@ -1,0 +1,13 @@
+{
+  "id": "nickname_01",
+  "scenario": "nickname",
+  "plan": "free",
+  "memory_mode": "remember",
+  "content": "퇴근길에 비가 와서 우산 없이 편의점까지 뛰어갔다. 홀딱 젖었는데 이상하게 웃음이 났다. 집에 와서 따뜻한 물로 씻고 라면 끓여 먹으니까 하루가 괜찮게 마무리된 느낌.",
+  "fixture_memory": [],
+  "fixture_recent": "(no prior entries)",
+  "nickname": "하늘",
+  "birth_date": "1997-05-21",
+  "entry_date": "2026-10-03",
+  "expected": { "safety": "none", "min_chars": 100, "max_chars": 900 }
+}

@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  Switch,
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,9 +12,12 @@ import { router } from 'expo-router';
 import { useTheme } from '@/theme/useTheme';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/authStore';
+import LogoHorizontal from '../assets/brand/svg/muni-logo-horizontal.svg';
+import LogoHorizontalLight from '../assets/brand/svg/muni-logo-horizontal-light.svg';
 
 export default function OnboardingScreen() {
-  const { colors, typography, spacing, radius } = useTheme();
+  const { colors, typography, spacing, radius, dark } = useTheme();
+  const Logo = dark ? LogoHorizontalLight : LogoHorizontal;
   const user = useAuthStore((s) => s.user);
   const setProfile = useAuthStore((s) => s.setProfile);
 
@@ -25,15 +27,29 @@ export default function OnboardingScreen() {
 
   const allConsented = consentSensitive && consentAi;
 
+  // The silent sign-in in index.tsx may not have finished (or may have failed),
+  // so retry here and surface the failure instead of doing nothing.
+  async function ensureUserId(): Promise<string | null> {
+    if (user) return user.id;
+    const { data, error } = await supabase.auth.signInAnonymously();
+    if (error || !data.user) {
+      console.error('[onboarding] anonymous sign-in failed', { code: error?.code, status: error?.status });
+      Alert.alert('연결 오류', '로그인하지 못했어요. 네트워크를 확인하고 다시 시도해 주세요.');
+      return null;
+    }
+    return data.user.id;
+  }
+
   async function handleAgree() {
-    if (!user) return;
     setIsSubmitting(true);
     try {
+      const userId = await ensureUserId();
+      if (!userId) return;
       const now = new Date().toISOString();
       const { data, error } = await supabase
         .from('profiles')
         .upsert({
-          id: user.id,
+          id: userId,
           plan: 'free',
           default_memory_mode: 'remember',
           consent_ai_at: now,
@@ -47,8 +63,9 @@ export default function OnboardingScreen() {
 
       if (error) throw error;
       setProfile(data);
-      router.replace('/(tabs)/diary');
+      router.replace('/profile-setup');
     } catch (e) {
+      console.error('[onboarding] profile upsert failed', { code: (e as { code?: string })?.code });
       Alert.alert('오류', '다시 시도해 주세요.');
     } finally {
       setIsSubmitting(false);
@@ -56,13 +73,14 @@ export default function OnboardingScreen() {
   }
 
   async function handlePrivateOnly() {
-    if (!user) return;
     setIsSubmitting(true);
     try {
+      const userId = await ensureUserId();
+      if (!userId) return;
       const { data, error } = await supabase
         .from('profiles')
         .upsert({
-          id: user.id,
+          id: userId,
           plan: 'free',
           default_memory_mode: 'private',
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -75,6 +93,7 @@ export default function OnboardingScreen() {
       setProfile(data);
       router.replace('/(tabs)/diary');
     } catch (e) {
+      console.error('[onboarding] profile upsert failed', { code: (e as { code?: string })?.code });
       Alert.alert('오류', '다시 시도해 주세요.');
     } finally {
       setIsSubmitting(false);
@@ -88,15 +107,16 @@ export default function OnboardingScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.heroSection}>
-          <Text style={[styles.appName, { color: colors.accent, fontFamily: typography.fontFamily.bold }]}>
-            일기
+          <Logo width={LOGO_WIDTH} height={LOGO_WIDTH * LOGO_ASPECT} style={styles.logo} accessibilityLabel="무늬" />
+          <Text style={[styles.subtitle, { color: colors.subtext, fontFamily: typography.fontFamily.medium }]}>
+            나를 기억하는 AI 일기
           </Text>
           <Text style={[styles.tagline, { color: colors.text, fontFamily: typography.fontFamily.semiBold }]}>
             AI가 읽고, 기억하고,{'\n'}답장을 써요.
           </Text>
           <Text style={[styles.description, { color: colors.subtext, fontFamily: typography.fontFamily.regular }]}>
-            오늘 있었던 일을 쓰면 AI가 따뜻한 답장을 드려요.
-            일기를 쓸수록 AI가 나를 더 잘 알아가고, 감정과 습관의 패턴을 발견해 드려요.
+            오늘 있었던 일을 쓰면 AI 고양이 무늬가 따뜻한 답장을 드려요.
+            일기를 쓸수록 무늬가 나를 더 잘 알아가고, 감정과 습관의 패턴을 발견해 드려요.
           </Text>
           <Text style={[styles.disclosure, { color: colors.subtext, fontFamily: typography.fontFamily.regular, borderColor: colors.border }]}>
             답장은 AI가 써요. 의료 서비스가 아니에요.
@@ -112,6 +132,7 @@ export default function OnboardingScreen() {
             value={consentSensitive}
             onChange={setConsentSensitive}
             label="민감정보(감정·심리 관련 내용) 처리에 동의해요"
+            onViewDetail={() => router.push({ pathname: '/legal/[doc]', params: { doc: 'sensitive' } })}
             colors={colors}
             typography={typography}
             spacing={spacing}
@@ -121,6 +142,7 @@ export default function OnboardingScreen() {
             value={consentAi}
             onChange={setConsentAi}
             label="일기 내용을 AI 답장 생성을 위해 Anthropic(미국)에 전송하는 것에 동의해요"
+            onViewDetail={() => router.push({ pathname: '/legal/[doc]', params: { doc: 'overseas' } })}
             colors={colors}
             typography={typography}
             spacing={spacing}
@@ -157,6 +179,26 @@ export default function OnboardingScreen() {
             동의하지 않고 시작 (AI 답장 없음)
           </Text>
         </Pressable>
+
+        <Text style={[styles.legalNotice, { color: colors.subtext, fontFamily: typography.fontFamily.regular, marginTop: spacing.lg }]}>
+          시작하면{' '}
+          <Text
+            style={[styles.legalLink, { color: colors.text }]}
+            onPress={() => router.push({ pathname: '/legal/[doc]', params: { doc: 'terms' } })}
+            accessibilityRole="link"
+          >
+            이용약관
+          </Text>
+          과{' '}
+          <Text
+            style={[styles.legalLink, { color: colors.text }]}
+            onPress={() => router.push({ pathname: '/legal/[doc]', params: { doc: 'privacy' } })}
+            accessibilityRole="link"
+          >
+            개인정보 처리방침
+          </Text>
+          에 동의하는 것으로 봐요.
+        </Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -166,6 +208,7 @@ function ConsentRow({
   value,
   onChange,
   label,
+  onViewDetail,
   colors,
   typography,
   spacing,
@@ -173,33 +216,47 @@ function ConsentRow({
   value: boolean;
   onChange: (v: boolean) => void;
   label: string;
+  onViewDetail: () => void;
   colors: ReturnType<typeof useTheme>['colors'];
   typography: ReturnType<typeof useTheme>['typography'];
   spacing: ReturnType<typeof useTheme>['spacing'];
 }) {
   return (
-    <Pressable
-      onPress={() => onChange(!value)}
-      style={[styles.consentRow, { paddingVertical: spacing.sm }]}
-      accessibilityRole="checkbox"
-      accessibilityState={{ checked: value }}
-      accessibilityLabel={label}
-    >
-      <View style={[styles.checkbox, { borderColor: value ? colors.accent : colors.border, backgroundColor: value ? colors.accent : 'transparent' }]}>
-        {value && <Text style={styles.checkmark}>✓</Text>}
-      </View>
-      <Text style={[styles.consentLabel, { color: colors.text, fontFamily: typography.fontFamily.regular, flex: 1 }]}>
-        {label}
-      </Text>
-    </Pressable>
+    <View style={[styles.consentRow, { paddingVertical: spacing.sm }]}>
+      <Pressable
+        onPress={() => onChange(!value)}
+        style={styles.consentToggle}
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: value }}
+        accessibilityLabel={label}
+      >
+        <View style={[styles.checkbox, { borderColor: value ? colors.accent : colors.border, backgroundColor: value ? colors.accent : 'transparent' }]}>
+          {value && <Text style={styles.checkmark}>✓</Text>}
+        </View>
+        <Text style={[styles.consentLabel, { color: colors.text, fontFamily: typography.fontFamily.regular, flex: 1 }]}>
+          <Text style={{ color: colors.accent }}>[필수] </Text>
+          {label}
+        </Text>
+      </Pressable>
+      <Pressable onPress={onViewDetail} hitSlop={8} accessibilityRole="link" accessibilityLabel="자세히 보기">
+        <Text style={[styles.viewDetail, { color: colors.subtext, fontFamily: typography.fontFamily.regular }]}>
+          보기
+        </Text>
+      </Pressable>
+    </View>
   );
 }
+
+// muni-logo-horizontal.svg viewBox is 860×300
+const LOGO_WIDTH = 200;
+const LOGO_ASPECT = 300 / 860;
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { paddingTop: 48 },
   heroSection: { marginBottom: 40 },
-  appName: { fontSize: 42, marginBottom: 12 },
+  logo: { marginLeft: -8, marginBottom: 8 },
+  subtitle: { fontSize: 15, marginBottom: 20 },
   tagline: { fontSize: 26, lineHeight: 36, marginBottom: 16 },
   description: { fontSize: 16, lineHeight: 26, marginBottom: 16 },
   disclosure: {
@@ -212,6 +269,10 @@ const styles = StyleSheet.create({
   consentsSection: { marginBottom: 8 },
   consentHeader: { fontSize: 17, marginBottom: 12 },
   consentRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  consentToggle: { flex: 1, flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  viewDetail: { fontSize: 14, textDecorationLine: 'underline', marginTop: 1 },
+  legalNotice: { fontSize: 13, lineHeight: 20, textAlign: 'center' },
+  legalLink: { textDecorationLine: 'underline' },
   checkbox: {
     width: 22,
     height: 22,

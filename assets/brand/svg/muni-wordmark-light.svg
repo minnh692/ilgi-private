@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 270">
+  <g fill="none" stroke="#FBF1E4" stroke-width="30" stroke-linecap="round" stroke-linejoin="round">
+    <!-- 무: ㅁ with cat ears -->
+    <rect x="40" y="66" width="122" height="68" rx="12"/>
+    <!-- ㅜ -->
+    <path d="M18 182 H184"/>
+    <path d="M101 182 V238"/>
+    <!-- 늬: ㄴ -->
+    <path d="M236 52 V130 H334"/>
+    <!-- ㅡ -->
+    <path d="M222 186 H350"/>
+    <!-- ㅣ with a curled cat tail -->
+    <path d="M400 34 V196 C400 238 448 244 452 206"/>
+  </g>
+  <!-- ears -->
+  <g fill="#FBF1E4" stroke="#FBF1E4" stroke-width="10" stroke-linejoin="round">
+    <polygon points="46,56 52,22 80,48"/>
+    <polygon points="156,56 150,22 122,48"/>
+  </g>
+</svg>

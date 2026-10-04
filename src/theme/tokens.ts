@@ -1,25 +1,37 @@
+// 무늬 cat brand
+export const brand = {
+  ink: '#3A2E2A',     // outlines, primary text
+  cheese: '#F4A259',  // fur — main brand fill
+  stripe: '#D97B3C',  // tabby stripes — interactive accent
+  cream: '#FBF1E4',   // app background
+  muzzle: '#FFF6EA',  // card surfaces
+  blush: '#F7B7A3',   // soft highlights
+  nose: '#E0786A',    // small pops of warmth
+} as const;
+
 export const palette = {
+  ...brand,
+
   // Warm paper-like base
-  cream: '#F7F3EC',
-  paper: '#F2EDE3',
-  parchment: '#EBE4D6',
+  paper: brand.muzzle,
+  parchment: '#F3E3CE',
 
   // Warm earth tones
-  inkBrown: '#3D2B1F',
-  warmGray: '#7A6B60',
-  softGray: '#B0A49A',
-  borderGray: '#DDD5CA',
+  inkBrown: brand.ink,
+  warmGray: '#7A6A62',
+  softGray: '#B3A398',
+  borderGray: '#EADBC8',
 
-  // Accent — muted terracotta
-  accent: '#C8795A',
-  accentLight: '#F0D5C8',
-  accentDark: '#A05A40',
+  // Accent — stripe orange for interactive elements, cheese tint for soft fills
+  accent: brand.stripe,
+  accentLight: '#FCE3C6',
+  accentDark: '#8A4A22',
 
   // Mood dots
   moodJoy: '#F4C842',
   moodCalm: '#7EC8A4',
   moodSad: '#7EB5D4',
-  moodAngry: '#E07A5F',
+  moodAngry: brand.nose,
   moodAnxious: '#C39BD3',
 
   // Utility
@@ -30,11 +42,11 @@ export const palette = {
   success: '#2E7D52',
 
   // Dark mode overrides applied via colorScheme
-  darkBg: '#1C1810',
-  darkSurface: '#2A2318',
-  darkBorder: '#3D3328',
-  darkText: '#EDE6D8',
-  darkSubtext: '#9E9080',
+  darkBg: '#1E1815',
+  darkSurface: '#2B2320',
+  darkBorder: '#3F3430',
+  darkText: '#F3E8DA',
+  darkSubtext: '#A39286',
 };
 
 export const typography = {
@@ -82,21 +94,21 @@ export const radius = {
 
 export const shadow = {
   sm: {
-    shadowColor: '#3D2B1F',
+    shadowColor: brand.ink,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06,
     shadowRadius: 3,
     elevation: 2,
   },
   md: {
-    shadowColor: '#3D2B1F',
+    shadowColor: brand.ink,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
   },
   lg: {
-    shadowColor: '#3D2B1F',
+    shadowColor: brand.ink,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12,
     shadowRadius: 16,

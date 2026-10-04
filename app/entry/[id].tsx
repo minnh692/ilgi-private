@@ -1,14 +1,17 @@
 import { useRef, useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Animated, Easing, AccessibilityInfo } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '@/theme/useTheme';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/authStore';
-import { SavePrompt } from '../components/SavePrompt';
+import { QuotaExceededSheet } from '@/components/QuotaExceededSheet';
+import { FREE_LAUNCH, hasPlusFeatures } from '@/lib/plan';
 import type { Database } from '@/types/database';
 import Constants from 'expo-constants';
+import WritingArt from '../../assets/brand/svg/muni-writing.svg';
+import Paw from '../../assets/brand/svg/muni-paw.svg';
 
 type Entry = Database['public']['Tables']['entries']['Row'];
 type Reply = Database['public']['Tables']['replies']['Row'];
@@ -18,6 +21,9 @@ const SUPABASE_URL = Constants.expoConfig?.extra?.supabaseUrl as string;
 function ReplyCard({ reply, isFirstEntry }: { reply: Reply; isFirstEntry: boolean }) {
   const { colors, typography, spacing, radius, shadow } = useTheme();
   const qc = useQueryClient();
+
+  const isSafety = reply.kind === 'safety';
+  const memoryNotes: string[] = isFirstEntry && !isSafety ? (reply.memory_notes ?? []) : [];
 
   const rateMutation = useMutation({
     mutationFn: async (rating: number) => {
@@ -30,79 +36,143 @@ function ReplyCard({ reply, isFirstEntry }: { reply: Reply; isFirstEntry: boolea
     onSuccess: () => qc.invalidateQueries({ queryKey: ['reply', reply.entry_id] }),
   });
 
-  // "기억해둘게요" block — shown only on the first entry in remember mode
-  const memoryNote = isFirstEntry && reply.kind === 'normal' ? extractMemoryNote(reply.content) : null;
-
   return (
     <View
       style={[
         styles.replyCard,
         {
-          backgroundColor: colors.surfaceAlt,
+          backgroundColor: isSafety ? colors.errorLight : colors.surfaceAlt,
           borderRadius: radius.lg,
           padding: spacing.xl,
-          ...shadow.sm,
+          ...(isSafety ? {} : shadow.sm),
         },
       ]}
     >
-      <Text style={[styles.replyLabel, { color: colors.subtext, fontFamily: typography.fontFamily.medium }]}>
-        AI가 쓴 답장
+      <Text style={[
+        styles.replyLabel,
+        { color: isSafety ? colors.error : colors.subtext, fontFamily: typography.fontFamily.medium },
+      ]}>
+        {isSafety ? '위기상담 안내' : 'AI 고양이 무늬의 답장'}
       </Text>
       <Text style={[styles.replyContent, { color: colors.text, fontFamily: typography.fontFamily.regular }]}>
         {reply.content}
       </Text>
-
-      {memoryNote && (
-        <View style={[styles.memoryNote, { backgroundColor: colors.accentLight, borderRadius: radius.md }]}>
-          <Text style={[styles.memoryNoteTitle, { color: colors.accent, fontFamily: typography.fontFamily.semiBold }]}>
-            기억해둘게요 📝
-          </Text>
-          <Text style={[styles.memoryNoteBody, { color: colors.text, fontFamily: typography.fontFamily.regular }]}>
-            {memoryNote}
+      {/* Safety replies drop the persona entirely — no signature */}
+      {!isSafety && (
+        <View style={styles.replySignature}>
+          <Paw width={14} height={14} color={colors.subtext} />
+          <Text style={[styles.replySignatureText, { color: colors.subtext, fontFamily: typography.fontFamily.medium }]}>
+            — 무늬
           </Text>
         </View>
       )}
 
-      <View style={styles.ratingRow}>
-        {[
-          { rating: 1, label: '도움이 됐어요', emoji: '👍' },
-          { rating: -1, label: '별로예요', emoji: '👎' },
-        ].map(({ rating, label, emoji }) => (
-          <Pressable
-            key={rating}
-            onPress={() => rateMutation.mutate(rating)}
-            style={[
-              styles.ratingBtn,
-              {
-                borderColor: reply.rating === rating ? colors.accent : colors.border,
-                borderRadius: radius.full,
-                backgroundColor: reply.rating === rating ? colors.accentLight : 'transparent',
-              },
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel={label}
-          >
-            <Text style={styles.ratingEmoji}>{emoji}</Text>
-            <Text style={[styles.ratingLabel, { color: colors.subtext, fontFamily: typography.fontFamily.regular }]}>
-              {label}
+      {memoryNotes.length > 0 && (
+        <View style={[styles.memoryNote, { backgroundColor: colors.accentLight, borderRadius: radius.md }]}>
+          <Text style={[styles.memoryNoteTitle, { color: colors.accent, fontFamily: typography.fontFamily.semiBold }]}>
+            기억해둘게요
+          </Text>
+          {memoryNotes.map((note, i) => (
+            <Text key={i} style={[styles.memoryNoteItem, { color: colors.text, fontFamily: typography.fontFamily.regular }]}>
+              • {note}
             </Text>
-          </Pressable>
-        ))}
-      </View>
+          ))}
+        </View>
+      )}
+
+      {!isSafety && (
+        <View style={styles.ratingRow}>
+          {[
+            { rating: 1, label: '도움이 됐어요', withPaw: true },
+            { rating: -1, label: '별로예요', withPaw: false },
+          ].map(({ rating, label, withPaw }) => (
+            <Pressable
+              key={rating}
+              onPress={() => rateMutation.mutate(rating)}
+              style={[
+                styles.ratingBtn,
+                {
+                  borderColor: reply.rating === rating ? colors.accent : colors.border,
+                  borderRadius: radius.full,
+                  backgroundColor: reply.rating === rating ? colors.accentLight : 'transparent',
+                },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={label}
+            >
+              {withPaw && <Paw width={16} height={16} color={reply.rating === rating ? colors.accent : colors.subtext} />}
+              <Text style={[styles.ratingLabel, { color: colors.subtext, fontFamily: typography.fontFamily.regular }]}>
+                {label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
     </View>
   );
 }
 
-// Extracts 2 concrete things the AI will remember (for first-entry block).
-// In production the prompt should structure these; here we show a friendly placeholder.
-function extractMemoryNote(content: string): string {
-  const sentences = content.split(/[.。]/g).map((s) => s.trim()).filter(Boolean);
-  const picks = sentences.slice(0, 2).join('. ');
-  return picks ? `오늘 일기에서 기억해둘 것들을 정리했어요.\n• 오늘 겪은 일과 감정\n• 앞으로 답장에 참고할게요` : '';
+// Server error codes from generate-reply → what we tell the user
+const REPLY_ERROR_COPY: Record<string, string> = {
+  ai_busy: '지금 무늬에게 답장 요청이 몰려 있어요.\n잠시 후 다시 시도해 주세요.',
+  ai_unavailable: '지금은 무늬가 답장을 쓸 수 없어요.\n잠시 후 다시 시도해 주세요.',
+};
+
+/** Shown instead of a reply for anonymous accounts: AI replies require a linked account. */
+function LoginForReply() {
+  const { colors, typography, spacing, radius } = useTheme();
+  return (
+    <View style={[styles.generatingCard, { backgroundColor: colors.surfaceAlt, borderRadius: radius.lg, padding: spacing.xl }]}>
+      <Paw width={28} height={28} color={colors.accent} />
+      <Text style={[styles.generatingText, { color: colors.text, fontFamily: typography.fontFamily.semiBold, textAlign: 'center' }]}>
+        로그인하면 무늬가 답장을 써드려요
+      </Text>
+      <Text style={[styles.loginHint, { color: colors.subtext, fontFamily: typography.fontFamily.regular }]}>
+        지금까지 쓴 일기는 연결한 계정으로 그대로 옮겨져요.
+      </Text>
+      <Pressable
+        onPress={() => router.push({ pathname: '/login', params: { mode: 'link' } })}
+        style={[styles.loginBtn, { backgroundColor: colors.accent, borderRadius: radius.md }]}
+        accessibilityRole="button"
+        accessibilityLabel="로그인하고 답장 받기"
+      >
+        <Text style={[styles.loginBtnText, { fontFamily: typography.fontFamily.semiBold }]}>
+          로그인하고 답장 받기
+        </Text>
+      </Pressable>
+    </View>
+  );
 }
+
+// muni-writing.svg viewBox is 240×200
+const WRITING_ART_WIDTH = 200;
+const WRITING_ART_ASPECT = 200 / 240;
 
 function GeneratingReply() {
   const { colors, typography, spacing, radius } = useTheme();
+  const [bob] = useState(() => new Animated.Value(0));
+
+  // Slow 3px bob while 무늬 writes; skipped when the user prefers reduced motion
+  useEffect(() => {
+    let loop: Animated.CompositeAnimation | null = null;
+    let cancelled = false;
+    AccessibilityInfo.isReduceMotionEnabled().then((reduce) => {
+      if (cancelled || reduce) return;
+      const half = { duration: 1200, easing: Easing.inOut(Easing.sin), useNativeDriver: true };
+      loop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(bob, { toValue: -3, ...half }),
+          Animated.timing(bob, { toValue: 0, ...half }),
+        ]),
+      );
+      loop.start();
+    });
+    return () => {
+      cancelled = true;
+      loop?.stop();
+    };
+  }, [bob]);
+
   return (
     <View
       style={[
@@ -114,9 +184,11 @@ function GeneratingReply() {
         },
       ]}
     >
-      <ActivityIndicator color={colors.accent} />
-      <Text style={[styles.generatingText, { color: colors.subtext, fontFamily: typography.fontFamily.regular }]}>
-        답장을 쓰고 있어요...
+      <Animated.View style={{ transform: [{ translateY: bob }] }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+        <WritingArt width={WRITING_ART_WIDTH} height={WRITING_ART_WIDTH * WRITING_ART_ASPECT} />
+      </Animated.View>
+      <Text accessibilityLiveRegion="polite" style={[styles.generatingText, { color: colors.subtext, fontFamily: typography.fontFamily.regular }]}>
+        무늬가 답장을 쓰고 있어요
       </Text>
     </View>
   );
@@ -130,7 +202,8 @@ export default function EntryDetailScreen() {
   const setProfile = useAuthStore((s) => s.setProfile);
   const qc = useQueryClient();
 
-  const [savePromptVisible, setSavePromptVisible] = useState(false);
+  const [quotaSheetVisible, setQuotaSheetVisible] = useState(false);
+  const paywallTriggeredRef = useRef(false);
 
   const isAnonymous = user?.is_anonymous ?? true;
 
@@ -164,34 +237,41 @@ export default function EntryDetailScreen() {
     refetchIntervalInBackground: false,
   });
 
-  // Show save prompt after reply appears (first entry) or after 3rd entry
+  // Entry count — declared before paywall useEffect so isFirstEntry is in scope
+  const { data: entryCount = 0 } = useQuery({
+    queryKey: ['entry_count', user?.id],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from('entries')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user!.id);
+      return count ?? 0;
+    },
+    enabled: !!user,
+  });
+  const isFirstEntry = entryCount <= 1;
+
+  // Show paywall after first reply, once, for non-plus users
   useEffect(() => {
-    if (!reply || !isAnonymous) return;
+    // Never follow a crisis response with an upsell
+    if (!reply || reply.kind === 'safety' || !isFirstEntry || paywallTriggeredRef.current) return;
+    if (FREE_LAUNCH || profile?.plan === 'plus') return;
     const state = (profile?.onboarding_state as Record<string, unknown>) ?? {};
-    const savePromptShown = state.savePromptShown as boolean | undefined;
-    const entryCount = state.entryCount as number | undefined;
+    if (state.paywallShown) return;
 
-    const isFirstEntry = !savePromptShown;
-    const isThirdEntry = !savePromptShown && (entryCount ?? 0) >= 3;
-
-    if (isFirstEntry || isThirdEntry) {
-      const timer = setTimeout(() => setSavePromptVisible(true), 1200);
-      return () => clearTimeout(timer);
-    }
-  }, [reply?.id, isAnonymous]);
-
-  async function markSavePromptShown() {
-    setSavePromptVisible(false);
-    if (!user) return;
-    const current = (profile?.onboarding_state as Record<string, unknown>) ?? {};
-    const { data } = await supabase
-      .from('profiles')
-      .update({ onboarding_state: { ...current, savePromptShown: true } })
-      .eq('id', user.id)
-      .select()
-      .maybeSingle();
-    if (data) setProfile(data as typeof profile);
-  }
+    paywallTriggeredRef.current = true;
+    const timer = setTimeout(async () => {
+      if (user) {
+        supabase.from('profiles').update({
+          onboarding_state: { ...state, paywallShown: true },
+        }).eq('id', user.id).then(() => {});
+      }
+      router.push('/paywall');
+    }, 2000);
+    return () => clearTimeout(timer);
+  // isFirstEntry changes once when entryCount loads — the ref prevents double-fire
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reply?.id, isFirstEntry]);
 
   const generateMutation = useMutation({
     mutationFn: async () => {
@@ -208,7 +288,8 @@ export default function EntryDetailScreen() {
         }
       );
       if (!response.ok) {
-        const err = await response.json().catch(() => ({})) as { error?: string };
+        const err = await response.json().catch(() => ({})) as { error?: string; status?: number; upstream?: string };
+        console.error('[entry] generate-reply failed', { http: response.status, error: err.error, status: err.status, upstream: err.upstream });
         throw new Error(err.error ?? 'Failed to generate reply');
       }
       return response.json();
@@ -216,18 +297,20 @@ export default function EntryDetailScreen() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['reply', id] }),
     onError: (err: Error) => {
       if (err.message === 'quota_exceeded') {
-        router.push('/paywall');
+        setQuotaSheetVisible(true);
       }
     },
   });
 
+  // Auto-request a reply once when an entry has none (side effect, so it lives in an effect, not render)
   const hasTriggered = useRef(false);
-  if (entry && !replyLoading && reply === null && !generateMutation.isPending && !hasTriggered.current) {
+  const { mutate: requestReply, isPending: replyPending } = generateMutation;
+  useEffect(() => {
+    // Anonymous accounts don't get AI replies (server returns login_required) — they see LoginForReply
+    if (!entry || isAnonymous || replyLoading || reply !== null || replyPending || hasTriggered.current) return;
     hasTriggered.current = true;
-    if (entry.memory_mode !== 'private') {
-      generateMutation.mutate();
-    }
-  }
+    if (entry.memory_mode !== 'private') requestReply();
+  }, [entry, isAnonymous, replyLoading, reply, replyPending, requestReply]);
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
@@ -247,19 +330,6 @@ export default function EntryDetailScreen() {
     ]);
   }
 
-  // Count total entries to know if this is the first
-  const { data: entryCount = 0 } = useQuery({
-    queryKey: ['entry_count', user?.id],
-    queryFn: async () => {
-      const { count } = await supabase
-        .from('entries')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', user!.id);
-      return count ?? 0;
-    },
-    enabled: !!user,
-  });
-
   if (entryLoading || !entry) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
@@ -274,8 +344,6 @@ export default function EntryDetailScreen() {
     day: 'numeric',
     weekday: 'long',
   });
-
-  const isFirstEntry = entryCount <= 1;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
@@ -316,6 +384,11 @@ export default function EntryDetailScreen() {
             },
           ]}
         >
+          {entry.title ? (
+            <Text style={[styles.entryTitle, { color: colors.text, fontFamily: typography.fontFamily.semiBold }]}>
+              {entry.title}
+            </Text>
+          ) : null}
           <Text style={[styles.entryContent, { color: colors.text, fontFamily: typography.fontFamily.regular }]}>
             {entry.content}
           </Text>
@@ -363,14 +436,33 @@ export default function EntryDetailScreen() {
                   </Text>
                 </Pressable>
               </>
+            ) : isAnonymous || generateMutation.error?.message === 'login_required' ? (
+              <LoginForReply />
+            ) : generateMutation.isError && generateMutation.error.message !== 'quota_exceeded' ? (
+              <View style={[styles.generatingCard, { backgroundColor: colors.surfaceAlt, borderRadius: radius.lg, padding: spacing.xl }]}>
+                <Text style={[styles.generatingText, { color: colors.subtext, fontFamily: typography.fontFamily.regular, textAlign: 'center' }]}>
+                  {REPLY_ERROR_COPY[generateMutation.error.message] ?? '답장을 받지 못했어요.'}
+                </Text>
+                <Pressable
+                  onPress={() => generateMutation.mutate()}
+                  style={[styles.regenBtn, { borderColor: colors.border }]}
+                  accessibilityRole="button"
+                  accessibilityLabel="다시 시도"
+                >
+                  <Text style={[styles.regenBtnText, { color: colors.accent, fontFamily: typography.fontFamily.medium }]}>
+                    다시 시도
+                  </Text>
+                </Pressable>
+              </View>
             ) : null}
           </>
         )}
       </ScrollView>
 
-      <SavePrompt
-        visible={savePromptVisible}
-        onDismiss={markSavePromptShown}
+      <QuotaExceededSheet
+        visible={quotaSheetVisible}
+        onDismiss={() => setQuotaSheetVisible(false)}
+        plan={hasPlusFeatures(profile?.plan) ? 'plus' : 'free'}
       />
     </SafeAreaView>
   );
@@ -393,17 +485,22 @@ const styles = StyleSheet.create({
   regenBtn: { marginTop: 12, borderWidth: 1, borderRadius: 8, padding: 12, alignItems: 'center' },
   regenBtnText: { fontSize: 14 },
   entryBox: {},
+  entryTitle: { fontSize: 20, lineHeight: 28, marginBottom: 8 },
   entryContent: { fontSize: 16, lineHeight: 28 },
   replyCard: {},
   replyLabel: { fontSize: 12, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
-  replyContent: { fontSize: 16, lineHeight: 28, marginBottom: 20 },
+  replyContent: { fontSize: 16, lineHeight: 28, marginBottom: 12 },
+  replySignature: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 4, marginBottom: 20 },
+  replySignatureText: { fontSize: 15 },
   memoryNote: { padding: 14, marginBottom: 16 },
   memoryNoteTitle: { fontSize: 14, marginBottom: 6 },
-  memoryNoteBody: { fontSize: 14, lineHeight: 21 },
+  memoryNoteItem: { fontSize: 14, lineHeight: 21 },
   ratingRow: { flexDirection: 'row', gap: 10 },
   ratingBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 14, borderWidth: 1 },
-  ratingEmoji: { fontSize: 18 },
   ratingLabel: { fontSize: 13 },
   generatingCard: { alignItems: 'center', gap: 12 },
   generatingText: { fontSize: 15, marginTop: 4 },
+  loginHint: { fontSize: 13, lineHeight: 19, textAlign: 'center' },
+  loginBtn: { marginTop: 8, paddingVertical: 12, paddingHorizontal: 24 },
+  loginBtnText: { color: '#fff', fontSize: 15 },
 });

@@ -1,0 +1,9 @@
+project_id = "ilgi"
+
+# Prompt files are read at runtime, so they must be bundled with the function
+[functions.generate-reply]
+static_files = ["./functions/_shared/prompts/*.md"]
+
+# RevenueCat can't send a Supabase JWT; the function checks its own Authorization header instead
+[functions.revenuecat-webhook]
+verify_jwt = false

@@ -1,0 +1,12 @@
+{
+  "id": "happy_day_02",
+  "scenario": "happy_day",
+  "plan": "free",
+  "memory_mode": "remember",
+  "content": "오늘 오전에 편의점에서 예진이랑 마주쳤다. 고등학교 이후로 거의 못 봤던 친구인데, 서로 전화번호 교환하고 근처 카페에서 두 시간 넘게 얘기했다. 각자 어떻게 살고 있는지, 요즘 뭐가 힘든지. 오랜 친구랑 이야기하면 왜 이렇게 편한지. 오늘 하루가 선물 같았다.",
+  "fixture_memory": [
+    { "category": "what_helps", "content": "오랜 친구와 대화할 때 에너지가 회복됨" }
+  ],
+  "fixture_recent": "(no prior entries)",
+  "expected": { "safety": "none", "min_chars": 100, "max_chars": 900 }
+}

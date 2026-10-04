@@ -1,0 +1,12 @@
+{
+  "id": "job_search_02",
+  "scenario": "job_search_anxiety",
+  "plan": "free",
+  "memory_mode": "remember",
+  "content": "이력서를 이번 달에만 열다섯 군데 넣었는데 연락 온 곳이 두 군데밖에 없다. 그중 하나는 조건이 너무 안 맞고. 지원할 때마다 자기소개서 다시 쓰고 포폴 정리하고 그러는데 에너지가 다 빠진다. 오늘은 그냥 아무것도 하기 싫어서 유튜브만 봤다. 이러면 안 되는데.",
+  "fixture_memory": [
+    { "category": "theme", "content": "취업 준비 중, 장기화되면서 지쳐가고 있음" }
+  ],
+  "fixture_recent": "최종 면접 불합격 통보를 받고 좌절했지만 계속 지원하기로 결심함",
+  "expected": { "safety": "none", "min_chars": 100, "max_chars": 900 }
+}

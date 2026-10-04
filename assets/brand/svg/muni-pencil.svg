@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <clipPath id="arm"><rect x="50" y="70" width="28" height="90" rx="14"/></clipPath>
+  </defs>
+  <g transform="rotate(-45 64 64)">
+    <!-- pencil -->
+    <g stroke="#3A2E2A" stroke-width="4" stroke-linejoin="round">
+      <polygon points="10,64 34,52 34,76" fill="#F3D1A6"/>
+      <rect x="96" y="52" width="22" height="24" rx="6" fill="#F7B7A3"/>
+      <rect x="34" y="52" width="60" height="24" fill="#FFD98A"/>
+      <rect x="92" y="52" width="10" height="24" fill="#CFC6BC"/>
+    </g>
+    <polygon points="10,64 19,59.5 19,68.5" fill="#3A2E2A" stroke="#3A2E2A" stroke-width="2" stroke-linejoin="round"/>
+    <!-- cat arm + paw: outline layer -->
+    <g fill="#3A2E2A" stroke="#3A2E2A" stroke-width="8" stroke-linejoin="round">
+      <rect x="50" y="70" width="28" height="90" rx="14"/>
+      <ellipse cx="64" cy="63.5" rx="18.5" ry="14.5"/>
+      <circle cx="52" cy="52.5" r="6.2"/>
+      <circle cx="64" cy="49.5" r="6.6"/>
+      <circle cx="76" cy="52.5" r="6.2"/>
+    </g>
+    <!-- fur fill -->
+    <g fill="#F4A259">
+      <rect x="50" y="70" width="28" height="90" rx="14"/>
+      <ellipse cx="64" cy="63.5" rx="18.5" ry="14.5"/>
+      <circle cx="52" cy="52.5" r="6.2"/>
+      <circle cx="64" cy="49.5" r="6.6"/>
+      <circle cx="76" cy="52.5" r="6.2"/>
+    </g>
+    <!-- toe lines -->
+    <g stroke="#3A2E2A" stroke-width="3" stroke-linecap="round">
+      <path d="M58 47 L58.2 54.5"/>
+      <path d="M70 47 L69.8 54.5"/>
+    </g>
+    <!-- tabby stripes on the arm -->
+    <g clip-path="url(#arm)" stroke="#D97B3C" stroke-width="5" stroke-linecap="round">
+      <path d="M46 90 L59 92"/>
+      <path d="M82 100 L69 102"/>
+      <path d="M46 112 L57 114"/>
+    </g>
+  </g>
+</svg>

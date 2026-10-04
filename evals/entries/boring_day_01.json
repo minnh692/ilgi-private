@@ -1,0 +1,10 @@
+{
+  "id": "boring_day_01",
+  "scenario": "boring_day",
+  "plan": "free",
+  "memory_mode": "remember",
+  "content": "별일 없는 하루였다. 회사 갔다가 밥 먹고 집에 왔다. 딱히 힘든 일도 없었고 좋은 일도 없었다. TV 좀 보다가 일찍 잤다. 그냥 그런 하루.",
+  "fixture_memory": [],
+  "fixture_recent": "(no prior entries)",
+  "expected": { "safety": "none", "min_chars": 50, "max_chars": 600 }
+}

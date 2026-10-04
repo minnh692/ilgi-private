@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+  <!-- Single-color line glyph: inherits color via currentColor. Use for tab bar / buttons. -->
+  <defs>
+    <!-- interior of the paw + arm: hides what is underneath / inside -->
+    <mask id="pawInside" maskUnits="userSpaceOnUse" x="0" y="0" width="128" height="128">
+      <rect x="0" y="0" width="128" height="128" fill="#fff"/>
+      <g transform="rotate(-45 64 64)" fill="#000">
+        <rect x="50" y="70" width="28" height="90" rx="14"/>
+        <ellipse cx="64" cy="63.5" rx="18.5" ry="14.5"/>
+        <circle cx="52" cy="52.5" r="6.2"/>
+        <circle cx="64" cy="49.5" r="6.6"/>
+        <circle cx="76" cy="52.5" r="6.2"/>
+      </g>
+    </mask>
+  </defs>
+  <!-- pencil (hidden where the paw grips it) -->
+  <g mask="url(#pawInside)">
+    <g transform="rotate(-45 64 64)" stroke="currentColor" stroke-width="7" stroke-linejoin="round" stroke-linecap="round">
+      <path d="M34 52 L10 64 L34 76 Z"/>
+      <path d="M34 52 H112 A6 6 0 0 1 118 58 V70 A6 6 0 0 1 112 76 H34"/>
+      <path d="M98 52 V76"/>
+      <polygon points="10,64 19,59.5 19,68.5" fill="currentColor"/>
+    </g>
+  </g>
+  <!-- paw + arm outline (outer half of a thick stroke) -->
+  <g mask="url(#pawInside)">
+    <g transform="rotate(-45 64 64)" fill="currentColor" stroke="currentColor" stroke-width="14" stroke-linejoin="round">
+      <rect x="50" y="70" width="28" height="90" rx="14"/>
+      <ellipse cx="64" cy="63.5" rx="18.5" ry="14.5"/>
+      <circle cx="52" cy="52.5" r="6.2"/>
+      <circle cx="64" cy="49.5" r="6.6"/>
+      <circle cx="76" cy="52.5" r="6.2"/>
+    </g>
+  </g>
+  <!-- toes -->
+  <g transform="rotate(-45 64 64)" stroke="currentColor" stroke-width="5" stroke-linecap="round">
+    <path d="M58 47 L58.2 55"/>
+    <path d="M70 47 L69.8 55"/>
+  </g>
+</svg>

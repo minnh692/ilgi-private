@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { getClient, MODEL_UTILITY, extractUsage } from '../_shared/anthropic.ts';
+import { parseModelJson } from '../_shared/json.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -19,6 +20,8 @@ Deno.serve(async (req) => {
     });
     const { data: { user } } = await userSupabase.auth.getUser();
     if (!user) return errorResponse('Unauthorized', 401);
+    // AI features are for signed-in accounts only (see generate-reply)
+    if (user.is_anonymous) return errorResponse('login_required', 403);
 
     const serviceSupabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
     const { entryId } = await req.json();
@@ -54,7 +57,7 @@ Deno.serve(async (req) => {
 }
 
 Diary entry:
-${entry.content}`,
+${entry.title ? `Title: ${entry.title}\n\n` : ''}${entry.content}`,
       }],
     });
 
@@ -70,7 +73,7 @@ ${entry.content}`,
     let insights;
     try {
       const text = extractRes.content[0].type === 'text' ? extractRes.content[0].text : '{}';
-      insights = JSON.parse(text);
+      insights = parseModelJson<Record<string, any>>(text);
     } catch {
       console.error('Failed to parse insights JSON');
       return errorResponse('parse error', 500);
@@ -87,6 +90,12 @@ ${entry.content}`,
       events: insights.events ?? [],
       coping: insights.coping ?? [],
     });
+
+    // Reports covering this entry are now stale — drop them so they regenerate
+    await serviceSupabase.from('reports').delete()
+      .eq('user_id', user.id)
+      .lte('period_start', entry.entry_date)
+      .gte('period_end', entry.entry_date);
 
     // Step 2: Resolve people
     if (insights.people?.length) {
@@ -106,7 +115,7 @@ ${entry.content}`,
           await serviceSupabase
             .from('people')
             .update({
-              mention_count: (match as { mention_count?: number }).mention_count ?? 0 + 1,
+              mention_count: ((match as { mention_count?: number }).mention_count ?? 0) + 1,
               last_mentioned_at: new Date().toISOString(),
             })
             .eq('id', match.id);
@@ -178,7 +187,7 @@ Output JSON:
     let mergeOps;
     try {
       const text = memoryMergeRes.content[0].type === 'text' ? memoryMergeRes.content[0].text : '{}';
-      mergeOps = JSON.parse(text);
+      mergeOps = parseModelJson<Record<string, any>>(text);
     } catch {
       console.error('Failed to parse memory merge JSON');
       return jsonResponse({ partial: true });
@@ -218,6 +227,11 @@ Output JSON:
       const toDelete = allActive.slice(0, (count ?? 0) - MAX_MEMORY_ITEMS).map((m) => m.id);
       await serviceSupabase.from('memory_items').delete().in('id', toDelete);
     }
+
+    // Done — generate-reply won't re-run this entry (or retry it in its sweep) unless it's edited
+    await serviceSupabase.from('entries')
+      .update({ memory_processed_at: new Date().toISOString() })
+      .eq('id', entryId);
 
     return jsonResponse({ ok: true });
   } catch (err) {

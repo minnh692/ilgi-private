@@ -1,0 +1,12 @@
+{
+  "id": "work_stress_02",
+  "scenario": "work_stress",
+  "plan": "free",
+  "memory_mode": "remember",
+  "content": "오늘 팀 회의에서 내가 석 달 준비한 기획안을 발표했는데, 팀장이 다섯 마디도 안 들어보고 \"이 방향은 아닌 것 같은데\"라고 잘라버렸다. 다른 사람들은 다 고개만 끄덕이고. 점심 때 조용히 앉아서 그 기획안 파일 닫았다. 뭔가 무너지는 느낌이었다. 화가 나는 건지 슬픈 건지도 모르겠다.",
+  "fixture_memory": [
+    { "category": "theme", "content": "직장에서 인정받고 싶은 마음이 강함" }
+  ],
+  "fixture_recent": "(no prior entries)",
+  "expected": { "safety": "none", "min_chars": 100, "max_chars": 900 }
+}

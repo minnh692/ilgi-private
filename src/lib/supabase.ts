@@ -16,5 +16,7 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
+    // PKCE: OAuth redirects carry a one-time code that's exchanged in-app (see lib/socialAuth.ts)
+    flowType: 'pkce',
   },
 });

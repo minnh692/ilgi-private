@@ -1,0 +1,12 @@
+{
+  "id": "sequence_01a",
+  "scenario": "sequence_memory_use",
+  "plan": "plus",
+  "memory_mode": "remember",
+  "content": "오늘 팀에서 은호랑 처음으로 같이 일했는데, 생각보다 잘 맞는 것 같다. 일 처리도 빠르고 농담도 잘 통하고. 그동안 팀 분위기가 좀 무거웠는데 은호 덕분에 오늘은 좀 가벼운 느낌이었다.",
+  "fixture_memory": [],
+  "fixture_recent": "(no prior entries)",
+  "expected": { "safety": "none", "min_chars": 100, "max_chars": 900 },
+  "sequence_id": "seq_01",
+  "sequence_index": 1
+}

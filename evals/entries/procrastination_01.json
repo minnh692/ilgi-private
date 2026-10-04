@@ -1,0 +1,10 @@
+{
+  "id": "procrastination_01",
+  "scenario": "procrastination",
+  "plan": "free",
+  "memory_mode": "remember",
+  "content": "해야 할 일 목록이 머릿속에 너무 많다. 보고서도 써야 하고, 연락도 해야 하고, 방 정리도 해야 하는데. 어디서부터 시작해야 할지 몰라서 결국 아무것도 못 하고 폰만 보다가 하루가 끝났다. 내일은 꼭 하나라도 해야지. (이 말을 며칠째 하고 있다.)",
+  "fixture_memory": [],
+  "fixture_recent": "(no prior entries)",
+  "expected": { "safety": "none", "min_chars": 100, "max_chars": 900 }
+}

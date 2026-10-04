@@ -1,0 +1,10 @@
+{
+  "id": "one_liner_01",
+  "scenario": "one_liner",
+  "plan": "free",
+  "memory_mode": "remember",
+  "content": "오늘 너무 피곤하다.",
+  "fixture_memory": [],
+  "fixture_recent": "(no prior entries)",
+  "expected": { "safety": "none", "min_chars": 30, "max_chars": 400 }
+}

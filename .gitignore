@@ -39,3 +39,10 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Supabase CLI cache (linked project, pooler URL)
+supabase/.temp/
+
+# Local scratch / eval output
+Claude outputs/
+evals/out/

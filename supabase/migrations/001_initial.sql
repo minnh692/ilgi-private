@@ -1,6 +1,3 @@
--- Enable required extensions
-create extension if not exists "uuid-ossp";
-
 -- Profiles
 create table profiles (
   id uuid primary key references auth.users(id) on delete cascade,
@@ -30,7 +27,7 @@ create policy "Users can update their own profile"
 
 -- Entries
 create table entries (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   entry_date date not null,
   content text not null,
@@ -65,7 +62,7 @@ create trigger entries_updated_at
 
 -- Replies
 create table replies (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   entry_id uuid not null references entries(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
   content text not null,
@@ -109,7 +106,7 @@ create policy "Users can read their own insights"
 
 -- People
 create table people (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   display_name text not null,
   aliases text[] not null default '{}',
@@ -126,7 +123,7 @@ create policy "Users can crud their own people"
 
 -- Memory items
 create table memory_items (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   category text not null
     check (category in ('theme', 'person_pattern', 'value_goal', 'what_helps', 'trigger', 'preference')),
@@ -152,7 +149,7 @@ create index memory_items_user_status on memory_items(user_id, status, confidenc
 
 -- Reports
 create table reports (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   kind text not null check (kind in ('weekly', 'monthly')),
   period_start date not null,
@@ -169,7 +166,7 @@ create policy "Users can read their own reports"
 
 -- Usage events
 create table usage_events (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   kind text not null check (kind in ('reply', 'safety', 'extract', 'memory', 'report')),
   model text not null,

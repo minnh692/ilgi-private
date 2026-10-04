@@ -36,10 +36,13 @@ supabase functions deploy generate-reply
 supabase functions deploy process-entry
 supabase functions deploy delete-account
 supabase functions deploy revenuecat-webhook
+supabase functions deploy claim-anonymous-data
 supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
 supabase secrets set MODEL_PLUS=claude-sonnet-4-6
 supabase secrets set MODEL_FREE=claude-haiku-4-5-20251001
 supabase secrets set MODEL_UTILITY=claude-haiku-4-5-20251001
+supabase secrets set REVENUECAT_WEBHOOK_AUTH="Bearer <random>"   # same value as RevenueCat → Webhooks → Authorization header
+supabase secrets set REVENUECAT_SECRET_API_KEY=sk_...            # RevenueCat → API keys → secret key
 ```
 
 ## File layout
@@ -77,10 +80,16 @@ evals/             Prompt eval runner (Phase 9)
 ## Key decisions
 - **Prompt caching**: system prompt is cached with `cache_control: ephemeral` on every Claude call
 - **Memory modes**: `remember` | `reply_only` | `private` — enforced server-side
-- **Quota**: free = 3 replies / rolling 7 days; plus = 10/day — enforced in Edge Function, never client
+- **Free launch (current)**: no paid plans yet. `FREE_LAUNCH` (server: `_shared/plan.ts`, on unless secret `FREE_LAUNCH=false`; app: `src/lib/plan.ts`) makes `effectivePlan()` return `plus` for everyone — all features + the 10/day limit — while `MODEL_PLUS` falls back to `MODEL_FREE` (Haiku). The settings 구독 section is hidden, `/paywall` only shows a "구독 준비 중" alert, and RevenueCat is not initialized. To launch paid: flip both flags, and in `src/content/legal.ts` restore the paid-service clause (제5조) plus the payment-data and RevenueCat entries in the privacy policy
+- **Quota**: free = 3 replies / rolling 7 days; plus = 10/day (user's local day) — reserved atomically by `reserve_reply_slot()` (migration 005) from the Edge Function, released if generation fails; never enforced client-side. Crisis replies bypass quota
 - **AI key never ships in app** — all Claude calls go through Edge Functions
-- **Anonymous sign-in first**, Apple sign-in is an optional link (same user_id preserved)
+- **Login screen first** (`app/login.tsx`): Apple (native, iOS) / Google / Kakao (Supabase OAuth + PKCE in an in-app browser), or "로그인 없이 시작" (anonymous). Anonymous users link later via `/login?mode=link`; their data moves to the social account through `claim-anonymous-data`, which requires the anonymous session's access token as proof of ownership
+- **AI is for signed-in accounts only**: anonymous users can write but get no AI replies/memory (`login_required`); crisis responses still go to everyone. Anonymous accounts are free to recreate, so per-account quota alone can't stop abuse
+- **Memory processing is self-healing**: `entries.memory_processed_at` (migration 006) marks completed `process-entry` runs; `generate-reply` retries failed/unprocessed entries; editing an entry's text clears it so it's reprocessed
+- **Anthropic capacity errors** map to `ai_busy` (429/529) / `ai_unavailable` (monthly spend cap) with 503 so the app can say "try again shortly"
 - **No pgvector in MVP** — `buildContext()` in `_shared/context.ts` is the single retrieval function, designed to add vector search later
+- **Plan is server-owned**: only `revenuecat-webhook` (service role) writes `profiles.plan` — a trigger (migration 008) pins it for client roles. The webhook requires its Authorization header and re-fetches state from RevenueCat `GET /v1/subscribers` instead of interpreting events. Server code uses `effectivePlan()` so a lapsed `plan_expires_at` counts as free. Subscribing requires a linked account
+- **Persona**: the AI is a cat named 무늬 (`reply.v2.md`) — natural 해요체, no cat speech ("냥"), never signs (app renders "— 무늬"); safety/crisis responses drop the persona entirely
 - **`EdgeRuntime.waitUntil`** used in `generate-reply` to kick off `process-entry` async, so user never waits
 
 ## Conventions
@@ -99,7 +108,10 @@ evals/             Prompt eval runner (Phase 9)
   - 7-day free trial on both
 - [ ] **Apple Developer Program**: Enroll at developer.apple.com (₩129,000/year)
   - Enable Sign in with Apple capability
-  - Set bundle ID: `com.ilgi.app`
+  - Set bundle ID: `com.munui.app`
+- [ ] **Google login**: Google Cloud OAuth client (Web) → Supabase Auth → Providers → Google (client ID + secret)
+- [ ] **Kakao login**: Kakao Developers app → Supabase Auth → Providers → Kakao (REST API key + client secret); set 동의항목 (email may require 비즈 앱)
+- [ ] **Supabase redirect URL**: add `munui://auth-callback` under Auth → URL Configuration → Redirect URLs
 - [ ] **EAS**: `eas login` with your Expo account, `eas build:configure`, set projectId in `app.config.ts`
 - [ ] **Pretendard font**: Download from https://github.com/orioncactus/pretendard and place `.otf` files in `assets/fonts/`
 - [ ] **Notification icon**: Add `assets/notification-icon.png` (96×96 white icon on transparent bg)

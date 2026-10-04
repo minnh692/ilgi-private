@@ -19,6 +19,8 @@ import { useAuthStore } from '@/stores/authStore';
 import { useDraftStore } from '@/stores/draftStore';
 import type { MemoryMode } from '@/types/database';
 import { queryClient } from '@/lib/queryClient';
+import { MoodFace, MOOD_VALUES, MOOD_LABELS } from '@/components/MoodFace';
+import { ModeIcon } from '@/components/ModeIcon';
 
 const DRAFT_KEY = 'diary_draft';
 
@@ -35,13 +37,12 @@ const MEMORY_MODES: { mode: MemoryMode; label: string; desc: string }[] = [
   { mode: 'private', label: '나만 보기', desc: 'AI에게 전송하지 않아요' },
 ];
 
-const MOOD_EMOJIS = ['😔', '😕', '😊', '🙂', '😄'];
 
 export default function WriteScreen() {
   const { colors, typography, spacing, radius } = useTheme();
   const user = useAuthStore((s) => s.user);
   const profile = useAuthStore((s) => s.profile);
-  const { content, mood, memoryMode, promptUsed, setContent, setMood, setMemoryMode, setPromptUsed, clear } = useDraftStore();
+  const { title, content, mood, memoryMode, promptUsed, setTitle, setContent, setMood, setMemoryMode, setPromptUsed, clear } = useDraftStore();
 
   const [isSaving, setIsSaving] = useState(false);
   const inputRef = useRef<TextInput>(null);
@@ -57,7 +58,8 @@ export default function WriteScreen() {
     AsyncStorage.getItem(DRAFT_KEY).then((saved) => {
       if (saved && !content) {
         try {
-          const parsed = JSON.parse(saved) as { content?: string; mood?: number; memoryMode?: MemoryMode };
+          const parsed = JSON.parse(saved) as { title?: string; content?: string; mood?: number; memoryMode?: MemoryMode };
+          if (parsed.title) setTitle(parsed.title);
           if (parsed.content) setContent(parsed.content);
           if (parsed.mood) setMood(parsed.mood);
           if (parsed.memoryMode) setMemoryMode(parsed.memoryMode);
@@ -70,10 +72,10 @@ export default function WriteScreen() {
   // Autosave draft
   useEffect(() => {
     const timer = setTimeout(() => {
-      AsyncStorage.setItem(DRAFT_KEY, JSON.stringify({ content, mood, memoryMode }));
+      AsyncStorage.setItem(DRAFT_KEY, JSON.stringify({ title, content, mood, memoryMode }));
     }, 500);
     return () => clearTimeout(timer);
-  }, [content, mood]);
+  }, [title, content, mood]);
 
   function handleChip(chip: string) {
     setContent(chip + '\n');
@@ -96,6 +98,7 @@ export default function WriteScreen() {
         .insert({
           user_id: user.id,
           entry_date: today,
+          title: title.trim() || null,
           content: content.trim(),
           mood,
           memory_mode: hasConsent ? memoryMode : 'private',
@@ -164,6 +167,23 @@ export default function WriteScreen() {
           contentContainerStyle={{ paddingHorizontal: spacing.base, paddingTop: spacing.base }}
           keyboardShouldPersistTaps="handled"
         >
+          {/* Title */}
+          <TextInput
+            style={[
+              styles.titleInput,
+              { color: colors.text, fontFamily: typography.fontFamily.semiBold, borderBottomColor: colors.border, marginBottom: spacing.base },
+            ]}
+            placeholder="제목 (선택)"
+            placeholderTextColor={colors.placeholder}
+            value={title}
+            onChangeText={setTitle}
+            maxLength={100}
+            returnKeyType="next"
+            onSubmitEditing={() => inputRef.current?.focus()}
+            submitBehavior="submit"
+            accessibilityLabel="제목"
+          />
+
           {/* Prompt chips */}
           {!content && (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chips}>
@@ -208,8 +228,7 @@ export default function WriteScreen() {
               오늘 기분
             </Text>
             <View style={styles.moodRow}>
-              {MOOD_EMOJIS.map((emoji, index) => {
-                const moodVal = index + 1;
+              {MOOD_VALUES.map((moodVal) => {
                 const selected = mood === moodVal;
                 return (
                   <Pressable
@@ -224,9 +243,9 @@ export default function WriteScreen() {
                     ]}
                     accessibilityRole="radio"
                     accessibilityState={{ selected }}
-                    accessibilityLabel={`기분 ${moodVal}`}
+                    accessibilityLabel={MOOD_LABELS[moodVal]}
                   >
-                    <Text style={styles.moodEmoji}>{emoji}</Text>
+                    <MoodFace mood={moodVal} size={32} style={{ opacity: selected ? 1 : 0.45 }} />
                   </Pressable>
                 );
               })}
@@ -256,6 +275,7 @@ export default function WriteScreen() {
                       accessibilityRole="radio"
                       accessibilityState={{ selected: active }}
                     >
+                      <ModeIcon mode={mode} size={16} color={active ? '#fff' : colors.subtext} />
                       <Text style={[
                         styles.modeBtnText,
                         {
@@ -296,14 +316,14 @@ const styles = StyleSheet.create({
   chips: { marginBottom: 16 },
   chip: { paddingHorizontal: 14, paddingVertical: 7, marginRight: 8 },
   chipText: { fontSize: 14 },
+  titleInput: { fontSize: 20, paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth },
   editor: { fontSize: 17, lineHeight: 28 },
   section: {},
   sectionLabel: { fontSize: 12, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
   moodRow: { flexDirection: 'row', gap: 8 },
   moodBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  moodEmoji: { fontSize: 26 },
   modeControl: { flexDirection: 'row', padding: 3, gap: 2 },
-  modeBtn: { flex: 1, paddingVertical: 8, alignItems: 'center' },
+  modeBtn: { flex: 1, flexDirection: 'row', paddingVertical: 8, alignItems: 'center', justifyContent: 'center', gap: 4 },
   modeBtnText: { fontSize: 12 },
   modeDesc: { fontSize: 12, marginTop: 6 },
 });

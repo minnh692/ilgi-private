@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import {
   View, Text, TextInput, StyleSheet, ScrollView,
   Pressable, KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
@@ -10,11 +10,12 @@ import { useTheme } from '@/theme/useTheme';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/authStore';
 import type { Database } from '@/types/database';
+import { MoodFace, MOOD_VALUES, MOOD_LABELS } from '@/components/MoodFace';
+import { ModeIcon } from '@/components/ModeIcon';
 
 type EntryRow = Database['public']['Tables']['entries']['Row'];
 type MemoryMode = 'remember' | 'reply_only' | 'private';
 
-const MOOD_EMOJIS = ['😔', '😕', '😊', '🙂', '😄'];
 const MEMORY_MODES: { mode: MemoryMode; label: string; desc: string }[] = [
   { mode: 'remember', label: '기억하고 답장', desc: 'AI가 답장을 쓰고 내용을 기억해요' },
   { mode: 'reply_only', label: '답장만', desc: 'AI가 답장을 쓰지만 기억하지 않아요' },
@@ -49,6 +50,7 @@ export default function EditEntryScreen() {
   const qc = useQueryClient();
   const inputRef = useRef<TextInput>(null);
 
+  const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [mood, setMood] = useState<number | null>(null);
   const [memoryMode, setMemoryMode] = useState<MemoryMode>('remember');
@@ -66,14 +68,15 @@ export default function EditEntryScreen() {
     enabled: !!id,
   });
 
-  // Populate form with existing entry data
-  useEffect(() => {
-    if (entry) {
-      setContent(entry.content);
-      setMood(entry.mood);
-      setMemoryMode(entry.memory_mode as MemoryMode);
-    }
-  }, [entry?.id]);
+  // Populate form once per loaded entry (adjust state during render instead of in an effect)
+  const [populatedId, setPopulatedId] = useState<string | null>(null);
+  if (entry && entry.id !== populatedId) {
+    setPopulatedId(entry.id);
+    setTitle(entry.title ?? '');
+    setContent(entry.content);
+    setMood(entry.mood);
+    setMemoryMode(entry.memory_mode as MemoryMode);
+  }
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -85,7 +88,7 @@ export default function EditEntryScreen() {
 
       const { error } = await supabase
         .from('entries')
-        .update({ content: content.trim(), mood, memory_mode: nextMode })
+        .update({ title: title.trim() || null, content: content.trim(), mood, memory_mode: nextMode })
         .eq('id', id);
       if (error) throw error;
 
@@ -150,6 +153,21 @@ export default function EditEntryScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <TextInput
+            style={[
+              styles.titleInput,
+              { color: colors.text, fontFamily: typography.fontFamily.semiBold, borderBottomColor: colors.border, marginBottom: spacing.base },
+            ]}
+            placeholder="제목 (선택)"
+            placeholderTextColor={colors.placeholder}
+            value={title}
+            onChangeText={setTitle}
+            maxLength={100}
+            returnKeyType="next"
+            onSubmitEditing={() => inputRef.current?.focus()}
+            submitBehavior="submit"
+            accessibilityLabel="제목"
+          />
+          <TextInput
             ref={inputRef}
             style={[styles.editor, { color: colors.text, fontFamily: typography.fontFamily.regular }]}
             multiline
@@ -165,8 +183,7 @@ export default function EditEntryScreen() {
               오늘 기분
             </Text>
             <View style={styles.moodRow}>
-              {MOOD_EMOJIS.map((emoji, index) => {
-                const val = index + 1;
+              {MOOD_VALUES.map((val) => {
                 const selected = mood === val;
                 return (
                   <Pressable
@@ -178,8 +195,9 @@ export default function EditEntryScreen() {
                     ]}
                     accessibilityRole="radio"
                     accessibilityState={{ selected }}
+                    accessibilityLabel={MOOD_LABELS[val]}
                   >
-                    <Text style={styles.moodEmoji}>{emoji}</Text>
+                    <MoodFace mood={val} size={32} style={{ opacity: selected ? 1 : 0.45 }} />
                   </Pressable>
                 );
               })}
@@ -211,6 +229,7 @@ export default function EditEntryScreen() {
                       accessibilityRole="radio"
                       accessibilityState={{ selected: active }}
                     >
+                      <ModeIcon mode={mode} size={16} color={active ? '#fff' : colors.subtext} />
                       <Text style={[styles.modeBtnText, {
                         color: active ? '#fff' : colors.subtext,
                         fontFamily: typography.fontFamily.medium,
@@ -242,15 +261,15 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 15 },
   headerAction: { fontSize: 16, minWidth: 44, textAlign: 'center' },
+  titleInput: { fontSize: 20, paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth },
   editor: { fontSize: 17, lineHeight: 28, minHeight: 200 },
   section: {},
   sectionLabel: { fontSize: 12, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
   moodRow: { flexDirection: 'row', gap: 8 },
   moodBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  moodEmoji: { fontSize: 26 },
   modeWarning: { fontSize: 13, marginBottom: 8 },
   modeControl: { flexDirection: 'row', padding: 3, gap: 2 },
-  modeBtn: { flex: 1, paddingVertical: 8, alignItems: 'center' },
+  modeBtn: { flex: 1, flexDirection: 'row', paddingVertical: 8, alignItems: 'center', justifyContent: 'center', gap: 4 },
   modeBtnText: { fontSize: 12 },
   modeDesc: { fontSize: 12, marginTop: 6 },
 });

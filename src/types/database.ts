@@ -29,6 +29,8 @@ export interface Database {
           timezone: string;
           reminder_time: string | null;
           onboarding_state: Json;
+          nickname: string | null;
+          birth_date: string | null;
           created_at: string;
         };
         Insert: {
@@ -42,6 +44,8 @@ export interface Database {
           timezone?: string;
           reminder_time?: string | null;
           onboarding_state?: Json;
+          nickname?: string | null;
+          birth_date?: string | null;
           created_at?: string;
         };
         Update: {
@@ -55,6 +59,8 @@ export interface Database {
           timezone?: string;
           reminder_time?: string | null;
           onboarding_state?: Json;
+          nickname?: string | null;
+          birth_date?: string | null;
           created_at?: string;
         };
         Relationships: [];
@@ -64,11 +70,13 @@ export interface Database {
           id: string;
           user_id: string;
           entry_date: string;
+          title: string | null;
           content: string;
           mood: number | null;
           memory_mode: string;
           prompt_used: string | null;
           safety_flag: boolean;
+          memory_processed_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -76,11 +84,13 @@ export interface Database {
           id?: string;
           user_id: string;
           entry_date: string;
+          title?: string | null;
           content: string;
           mood?: number | null;
           memory_mode?: string;
           prompt_used?: string | null;
           safety_flag?: boolean;
+          memory_processed_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -88,11 +98,13 @@ export interface Database {
           id?: string;
           user_id?: string;
           entry_date?: string;
+          title?: string | null;
           content?: string;
           mood?: number | null;
           memory_mode?: string;
           prompt_used?: string | null;
           safety_flag?: boolean;
+          memory_processed_at?: string | null;
           updated_at?: string;
         };
         Relationships: [];
@@ -110,6 +122,7 @@ export interface Database {
           output_tokens: number;
           cache_read_tokens: number;
           rating: number | null;
+          memory_notes: string[];
           created_at: string;
         };
         Insert: {
@@ -124,10 +137,12 @@ export interface Database {
           output_tokens?: number;
           cache_read_tokens?: number;
           rating?: number | null;
+          memory_notes?: string[];
           created_at?: string;
         };
         Update: {
           rating?: number | null;
+          memory_notes?: string[];
         };
         Relationships: [];
       };

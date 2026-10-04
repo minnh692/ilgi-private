@@ -1,39 +1,39 @@
-import { createClient } from 'npm:@supabase/supabase-js@2';
+import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 
-const FREE_REPLIES_PER_7_DAYS = 3;
-const PLUS_REPLIES_PER_DAY = 10;
+// Untyped client (no generated DB types in Edge Functions)
+type Client = SupabaseClient;
 
-export async function checkQuota(
-  supabase: ReturnType<typeof createClient>,
+// Limits are enforced atomically in Postgres: see reserve_reply_slot() in
+// migrations/005_reply_quota_reservation.sql (free = 3 / rolling 7 days, plus = 10 / local day).
+
+/** Reserves one reply slot. Returns the reservation id, or null when the quota is used up. */
+export async function reserveReplySlot(
+  supabase: Client,
   userId: string,
-  plan: 'free' | 'plus'
-): Promise<{ allowed: boolean; remaining: number }> {
-  const now = new Date();
+  plan: 'free' | 'plus',
+  timezone: string | null,
+): Promise<string | null> {
+  const { data, error } = await supabase.rpc('reserve_reply_slot', {
+    p_user_id: userId,
+    p_plan: plan,
+    p_timezone: timezone,
+  });
+  if (error) throw error;
+  return (data as string | null) ?? null;
+}
 
-  if (plan === 'plus') {
-    const dayStart = new Date(now);
-    dayStart.setHours(0, 0, 0, 0);
+/** Records the actual model/token usage on a reservation once the reply is saved. */
+export async function finalizeReplySlot(
+  supabase: Client,
+  slotId: string,
+  usage: { model: string; input_tokens: number; output_tokens: number },
+): Promise<void> {
+  const { error } = await supabase.from('usage_events').update(usage).eq('id', slotId);
+  if (error) console.error(JSON.stringify({ fn: 'quota', op: 'finalize', code: error.code }));
+}
 
-    const { count } = await supabase
-      .from('usage_events')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .eq('kind', 'reply')
-      .gte('created_at', dayStart.toISOString());
-
-    const used = count ?? 0;
-    return { allowed: used < PLUS_REPLIES_PER_DAY, remaining: PLUS_REPLIES_PER_DAY - used };
-  }
-
-  // Free: rolling 7-day window
-  const windowStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-  const { count } = await supabase
-    .from('usage_events')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('kind', 'reply')
-    .gte('created_at', windowStart.toISOString());
-
-  const used = count ?? 0;
-  return { allowed: used < FREE_REPLIES_PER_7_DAYS, remaining: FREE_REPLIES_PER_7_DAYS - used };
+/** Gives the slot back (generation failed, or the entry turned out to be a crisis). */
+export async function releaseReplySlot(supabase: Client, slotId: string): Promise<void> {
+  const { error } = await supabase.from('usage_events').delete().eq('id', slotId);
+  if (error) console.error(JSON.stringify({ fn: 'quota', op: 'release', code: error.code }));
 }

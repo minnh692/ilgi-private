@@ -1,49 +1,67 @@
 {
   "expo": {
-    "name": "일기",
+    "name": "무늬",
     "slug": "ilgi",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/brand/png/app-icon-1024.png",
     "userInterfaceStyle": "automatic",
-    "scheme": "ilgi",
+    "scheme": "munui",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.ilgi.app",
-      "usesAppleSignIn": true
+      "bundleIdentifier": "com.munui.app",
+      "usesAppleSignIn": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
-      "package": "com.ilgi.app",
+      "package": "com.munui.app",
       "adaptiveIcon": {
-        "backgroundColor": "#F5F0E8",
-        "foregroundImage": "./assets/adaptive-icon.png"
+        "foregroundImage": "./assets/brand/png/android-adaptive-foreground-1024.png",
+        "backgroundColor": "#FBF1E4",
+        "monochromeImage": "./assets/brand/png/android-monochrome-1024.png"
       }
     },
     "web": {
-      "favicon": "./assets/favicon.png",
+      "favicon": "./assets/brand/png/favicon-48.png",
       "bundler": "metro"
     },
     "plugins": [
       "expo-router",
       "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/brand/png/mark-1024.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#FBF1E4"
+        }
+      ],
       "expo-sharing",
       "expo-apple-authentication",
       [
         "expo-local-authentication",
         {
-          "faceIDPermission": "일기 앱을 잠금 해제하기 위해 Face ID를 사용합니다."
+          "faceIDPermission": "무늬 앱 잠금을 해제할 때 Face ID를 사용해요."
         }
       ],
       [
         "expo-notifications",
         {
           "icon": "./assets/notification-icon.png",
-          "color": "#C8956C"
+          "color": "#D97B3C"
         }
       ]
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "19429e1e-8282-4416-9be1-4bd4620211f1"
+      }
     }
   }
 }

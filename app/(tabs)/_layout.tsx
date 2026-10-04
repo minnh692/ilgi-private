@@ -1,10 +1,9 @@
 import { Tabs } from 'expo-router';
-import { useColorScheme, Text } from 'react-native';
+import { useColorScheme } from 'react-native';
 import { palette } from '@/theme/tokens';
-
-function TabIcon({ label }: { label: string }) {
-  return null; // Icon placeholder — use emoji or icon library
-}
+import PencilMono from '../../assets/brand/svg/muni-pencil-mono.svg';
+import TabInsights from '../../assets/brand/svg/muni-tab-insights.svg';
+import TabMe from '../../assets/brand/svg/muni-tab-me.svg';
 
 export default function TabsLayout() {
   const scheme = useColorScheme();
@@ -15,7 +14,7 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: dark ? palette.darkSurface : palette.white,
+          backgroundColor: dark ? palette.darkSurface : palette.muzzle,
           borderTopColor: dark ? palette.darkBorder : palette.borderGray,
           borderTopWidth: 1,
         },
@@ -31,8 +30,8 @@ export default function TabsLayout() {
         name="diary"
         options={{
           title: '일기',
-          tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: 20, color }}>📖</Text>
+          tabBarIcon: ({ color, size }) => (
+            <PencilMono width={size} height={size} color={color} />
           ),
         }}
       />
@@ -40,8 +39,8 @@ export default function TabsLayout() {
         name="insights"
         options={{
           title: '인사이트',
-          tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: 20, color }}>✨</Text>
+          tabBarIcon: ({ color, size }) => (
+            <TabInsights width={size} height={size} color={color} />
           ),
         }}
       />
@@ -49,8 +48,8 @@ export default function TabsLayout() {
         name="profile"
         options={{
           title: '나',
-          tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: 20, color }}>🪞</Text>
+          tabBarIcon: ({ color, size }) => (
+            <TabMe width={size} height={size} color={color} />
           ),
         }}
       />
