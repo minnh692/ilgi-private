@@ -12,6 +12,7 @@ import { router } from 'expo-router';
 import { useTheme } from '@/theme/useTheme';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/authStore';
+import { onboardingState } from '@/lib/consent';
 import LogoHorizontal from '../assets/brand/svg/muni-logo-horizontal.svg';
 import LogoHorizontalLight from '../assets/brand/svg/muni-logo-horizontal-light.svg';
 
@@ -19,13 +20,17 @@ export default function OnboardingScreen() {
   const { colors, typography, spacing, radius, dark } = useTheme();
   const Logo = dark ? LogoHorizontalLight : LogoHorizontal;
   const user = useAuthStore((s) => s.user);
+  const profile = useAuthStore((s) => s.profile);
   const setProfile = useAuthStore((s) => s.setProfile);
 
+  const [consentTerms, setConsentTerms] = useState(false);
   const [consentSensitive, setConsentSensitive] = useState(false);
   const [consentAi, setConsentAi] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const allConsented = consentSensitive && consentAi;
+  const allConsented = consentTerms && consentSensitive && consentAi;
+  // Signed-in (social) accounts can't skip consent; only anonymous users may start private-only
+  const isLinked = !!user && !user.is_anonymous;
 
   // The silent sign-in in index.tsx may not have finished (or may have failed),
   // so retry here and surface the failure instead of doing nothing.
@@ -46,24 +51,29 @@ export default function OnboardingScreen() {
       const userId = await ensureUserId();
       if (!userId) return;
       const now = new Date().toISOString();
+      // Existing accounts (e.g. sent here by the consent guard) keep their onboarding state
+      const existing = profile?.id === userId ? profile : null;
+      const { privacyOnly: _privacyOnly, ...prevState } = onboardingState(existing);
       const { data, error } = await supabase
         .from('profiles')
         .upsert({
           id: userId,
           plan: 'free',
-          default_memory_mode: 'remember',
+          // AI modes become available now; keep the user's choice if they had consented before
+          ...(existing?.consent_ai_at ? {} : { default_memory_mode: 'remember' }),
           consent_ai_at: now,
           consent_sensitive_at: now,
           consent_overseas_at: now,
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-          onboarding_state: { completed: false },
+          onboarding_state: { completed: false, ...prevState, termsAgreedAt: now },
         })
         .select()
         .single();
 
       if (error) throw error;
       setProfile(data);
-      router.replace('/profile-setup');
+      // Nickname/birthday setup only once
+      router.replace(existing?.nickname ? '/(tabs)/diary' : '/profile-setup');
     } catch (e) {
       console.error('[onboarding] profile upsert failed', { code: (e as { code?: string })?.code });
       Alert.alert('오류', '다시 시도해 주세요.');
@@ -129,6 +139,16 @@ export default function OnboardingScreen() {
           </Text>
 
           <ConsentRow
+            value={consentTerms}
+            onChange={setConsentTerms}
+            label="이용약관 및 개인정보 처리방침에 동의해요"
+            onViewDetail={() => router.push({ pathname: '/legal/[doc]', params: { doc: 'terms' } })}
+            colors={colors}
+            typography={typography}
+            spacing={spacing}
+          />
+
+          <ConsentRow
             value={consentSensitive}
             onChange={setConsentSensitive}
             label="민감정보(감정·심리 관련 내용) 처리에 동의해요"
@@ -168,37 +188,58 @@ export default function OnboardingScreen() {
           </Text>
         </Pressable>
 
-        <Pressable
-          onPress={handlePrivateOnly}
-          disabled={isSubmitting}
-          style={{ marginTop: spacing.base, alignItems: 'center', padding: spacing.sm }}
-          accessibilityRole="button"
-          accessibilityLabel="동의하지 않고 시작"
-        >
-          <Text style={[styles.secondaryButtonText, { color: colors.subtext, fontFamily: typography.fontFamily.regular }]}>
-            동의하지 않고 시작 (AI 답장 없음)
-          </Text>
-        </Pressable>
+        {isLinked ? (
+          <>
+            <Text style={[styles.legalNotice, { color: colors.subtext, fontFamily: typography.fontFamily.regular, marginTop: spacing.lg }]}>
+              로그인한 계정은 필수 항목에 동의해야 이용할 수 있어요.
+            </Text>
+            <Pressable
+              onPress={() => supabase.auth.signOut()}
+              disabled={isSubmitting}
+              style={{ marginTop: spacing.sm, alignItems: 'center', padding: spacing.sm }}
+              accessibilityRole="button"
+              accessibilityLabel="로그아웃"
+            >
+              <Text style={[styles.secondaryButtonText, { color: colors.subtext, fontFamily: typography.fontFamily.regular, textDecorationLine: 'underline' }]}>
+                로그아웃
+              </Text>
+            </Pressable>
+          </>
+        ) : (
+          <>
+            <Pressable
+              onPress={handlePrivateOnly}
+              disabled={isSubmitting}
+              style={{ marginTop: spacing.base, alignItems: 'center', padding: spacing.sm }}
+              accessibilityRole="button"
+              accessibilityLabel="동의하지 않고 시작"
+            >
+              <Text style={[styles.secondaryButtonText, { color: colors.subtext, fontFamily: typography.fontFamily.regular }]}>
+                동의하지 않고 시작 (AI 답장 없음)
+              </Text>
+            </Pressable>
 
-        <Text style={[styles.legalNotice, { color: colors.subtext, fontFamily: typography.fontFamily.regular, marginTop: spacing.lg }]}>
-          시작하면{' '}
-          <Text
-            style={[styles.legalLink, { color: colors.text }]}
-            onPress={() => router.push({ pathname: '/legal/[doc]', params: { doc: 'terms' } })}
-            accessibilityRole="link"
-          >
-            이용약관
-          </Text>
-          과{' '}
-          <Text
-            style={[styles.legalLink, { color: colors.text }]}
-            onPress={() => router.push({ pathname: '/legal/[doc]', params: { doc: 'privacy' } })}
-            accessibilityRole="link"
-          >
-            개인정보 처리방침
-          </Text>
-          에 동의하는 것으로 봐요.
-        </Text>
+            <Text style={[styles.legalNotice, { color: colors.subtext, fontFamily: typography.fontFamily.regular, marginTop: spacing.lg }]}>
+              시작하면{' '}
+              <Text
+                style={[styles.legalLink, { color: colors.text }]}
+                onPress={() => router.push({ pathname: '/legal/[doc]', params: { doc: 'terms' } })}
+                accessibilityRole="link"
+              >
+                이용약관
+              </Text>
+              과{' '}
+              <Text
+                style={[styles.legalLink, { color: colors.text }]}
+                onPress={() => router.push({ pathname: '/legal/[doc]', params: { doc: 'privacy' } })}
+                accessibilityRole="link"
+              >
+                개인정보 처리방침
+              </Text>
+              에 동의하는 것으로 봐요.
+            </Text>
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );

@@ -14,6 +14,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { palette } from '@/theme/tokens';
 import { useFonts } from '@/hooks/useFonts';
 import { configurePurchases, loginPurchasesUser } from '@/lib/purchases';
+import { needsConsent } from '@/lib/consent';
 import { isLockEnabled, authenticate } from '@/lib/appLock';
 import LockArt from '../assets/brand/svg/muni-lock.svg';
 
@@ -56,6 +57,8 @@ const lockStyles = StyleSheet.create({
 
 // Screens a signed-out user may stay on (index redirects on its own)
 const SIGNED_OUT_SEGMENTS = new Set(['login', 'auth-callback', 'legal']);
+// Screens a user who still has to consent may stay on
+const CONSENT_SEGMENTS = new Set(['onboarding', 'login', 'auth-callback', 'legal']);
 
 function AuthGate({ children }: { children: React.ReactNode }) {
   useProfile();
@@ -73,6 +76,16 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     if (router.canDismiss()) router.dismissAll();
     router.replace('/login');
   }, [authLoading, hasSession, firstSegment]);
+
+  // Consent guard: a signed-in account without the required consents (fresh social login, an
+  // anonymous account just linked, or an older account) goes to the consent screen from anywhere
+  const mustConsent = useAuthStore((s) => !s.isLoading && needsConsent(s.user, s.profile));
+  useEffect(() => {
+    if (!mustConsent) return;
+    if (firstSegment === undefined || CONSENT_SEGMENTS.has(firstSegment)) return;
+    if (router.canDismiss()) router.dismissAll();
+    router.replace('/onboarding');
+  }, [mustConsent, firstSegment]);
   const [isLocked, setIsLocked] = useState(false);
   const appState = useRef(AppState.currentState);
   const lastBackground = useRef<number | null>(null);
@@ -123,7 +136,18 @@ export default function RootLayout() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
-      if (!data.session) setLoading(false);
+      if (!data.session) {
+        setLoading(false);
+        return;
+      }
+      // A stored session can outlive its user (e.g. account deleted on another device, or by an
+      // older build that didn't sign out). Verify it with the server and drop it if the user is
+      // gone; network errors (no status) keep the session so offline launches still work.
+      supabase.auth.getUser().then(({ error }) => {
+        if (error && (error.status === 401 || error.status === 403 || error.code === 'user_not_found')) {
+          supabase.auth.signOut({ scope: 'local' });
+        }
+      });
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
