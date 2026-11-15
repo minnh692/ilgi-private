@@ -2,7 +2,7 @@
 // Should be reviewed by a legal professional. When paid plans launch, add back the payment
 // data, RevenueCat processor/overseas-transfer entries, and the paid-service clause (제5조).
 
-export type LegalDocId = 'terms' | 'privacy' | 'sensitive' | 'overseas';
+export type LegalDocId = 'terms' | 'privacy' | 'sensitive' | 'overseas' | 'marketing';
 
 export interface LegalSection {
   heading: string;
@@ -19,6 +19,8 @@ export interface LegalDoc {
 const OPERATOR = '조민혁';
 const CONTACT_EMAIL = 'ilgi.support@gmail.com';
 const EFFECTIVE_DATE = '2026.10.04';
+// Privacy policy revision that added the optional marketing consent (keep web/privacy.html in sync)
+const PRIVACY_UPDATED_DATE = '2026.11.15';
 
 export const LEGAL_DOCS: Record<LegalDocId, LegalDoc> = {
   terms: {
@@ -78,7 +80,7 @@ export const LEGAL_DOCS: Record<LegalDocId, LegalDoc> = {
 
   privacy: {
     title: '개인정보 처리방침',
-    updatedAt: EFFECTIVE_DATE,
+    updatedAt: PRIVACY_UPDATED_DATE,
     intro: `${OPERATOR}(이하 "운영자")는 「개인정보 보호법」에 따라 이용자의 개인정보를 보호하고 관련 고충을 원활하게 처리하기 위해 다음과 같이 처리방침을 둬요.`,
     sections: [
       {
@@ -88,13 +90,14 @@ export const LEGAL_DOCS: Record<LegalDocId, LegalDoc> = {
           '• 일기 정보: 일기 내용, 기분, 작성일',
           '• AI 처리 정보: AI 답장, AI가 정리한 요약·감정·인물·패턴 기억',
           '• 프로필 정보 (선택): 닉네임, 생년월일',
-          '• 설정 정보: 기억 모드, 알림 시간, 시간대',
-          '• 이용 기록: AI 답장 사용 횟수와 사용량',
+          '• 설정 정보: 기억 모드, 알림 시간과 알림 방식, 시간대',
+          '• 이용 기록: AI 답장 사용 횟수와 사용량, 일기를 작성한 시각',
+          '• 동의 기록 (선택): 광고성 정보 수신 동의 여부와 동의 일시, 야간 수신 동의 여부와 동의 일시',
         ].join('\n'),
       },
       {
         heading: '2. 처리 목적',
-        body: '일기 저장과 조회, AI 답장 생성, 기억 기반 개인화(닉네임 호칭, 생일 축하 포함), 감정·패턴 리포트 제공, 이용 한도 관리, 고객 문의 대응에 이용해요.',
+        body: '일기 저장과 조회, AI 답장 생성, 기억 기반 개인화(닉네임 호칭, 생일 축하 포함), 감정·패턴 리포트 제공, 이용 한도 관리, 고객 문의 대응에 이용해요. 광고성 정보 수신에 동의한 경우에는 일기를 작성한 시각을 분석해 알림 시간을 맞추고, 앱 알림으로 일기 알림과 서비스 소식을 보내는 데에도 이용해요.',
       },
       {
         heading: '3. 민감정보 처리',
@@ -102,7 +105,7 @@ export const LEGAL_DOCS: Record<LegalDocId, LegalDoc> = {
       },
       {
         heading: '4. 보유 및 이용 기간',
-        body: '탈퇴(계정 삭제)할 때까지 보관하고, 탈퇴 즉시 지체 없이 삭제해요. 개별 일기나 AI 기억은 이용자가 언제든 직접 삭제할 수 있어요. 다만 관련 법령에 따라 보관이 필요한 정보는 해당 기간 동안 보관해요.',
+        body: '탈퇴(계정 삭제)할 때까지 보관하고, 탈퇴 즉시 지체 없이 삭제해요. 개별 일기나 AI 기억은 이용자가 언제든 직접 삭제할 수 있어요. 광고성 정보 수신 동의를 철회하면 동의 기록을 지체 없이 삭제하고 맞춤 알림과 소식 전송을 멈춰요. 다만 관련 법령에 따라 보관이 필요한 정보는 해당 기간 동안 보관해요.',
       },
       {
         heading: '5. 처리 위탁',
@@ -194,6 +197,42 @@ export const LEGAL_DOCS: Record<LegalDocId, LegalDoc> = {
       {
         heading: '동의를 거부할 권리',
         body: '동의하지 않을 수 있어요. 동의하지 않으면 일기는 국외로 전송되지 않고, AI 답장 없이 일기만 기록할 수 있어요.',
+      },
+    ],
+  },
+
+  marketing: {
+    title: '광고성 정보 수신 및 알림 맞춤 동의 (선택)',
+    updatedAt: PRIVACY_UPDATED_DATE,
+    intro: '「정보통신망 이용촉진 및 정보보호 등에 관한 법률」 제50조와 「개인정보 보호법」 제15조에 따라, 아래와 같이 광고성 정보를 보내고 이를 위해 개인정보를 이용하는 데 동의를 받아요. 선택 항목이라 동의하지 않아도 서비스를 그대로 이용할 수 있어요.',
+    sections: [
+      {
+        heading: '보내는 내용',
+        body: '일기 쓸 시간을 알려 주는 알림, 새 기능·이벤트·혜택 등 무늬의 소식',
+      },
+      {
+        heading: '보내는 방법',
+        body: '앱 알림(푸시 알림). 기기에서 무늬의 알림을 허용한 경우에만 받아요.',
+      },
+      {
+        heading: '이용하는 개인정보',
+        body: '일기를 작성한 시각(일기 내용은 이용하지 않아요), 광고성 정보 수신 동의 여부와 동의 일시',
+      },
+      {
+        heading: '이용 목적',
+        body: '이용자가 일기를 자주 쓰는 시간대를 분석해 알림 시간을 맞추고, 일기 알림과 서비스 소식을 보내기 위해서예요. 동의하면 처음에는 매일 오후 10시(야간 수신에 동의하지 않으면 오후 8시 30분)에 알림을 보내고, 최근 30일 동안 일기가 5개 이상 쌓이면 가장 자주 쓰는 시간대로 알림 시간을 옮겨요. 시간 분석과 알림 예약은 이용자의 기기 안에서 이뤄지며, 이를 위해 외부 업체에 정보를 제공하지 않아요.',
+      },
+      {
+        heading: '야간 수신 (별도 동의)',
+        body: '오후 9시부터 다음 날 오전 8시 사이의 알림은 야간 수신에 따로 동의한 경우에만 보내요. 동의하지 않으면 이 시간대를 피해서 보내요. 이용자가 설정에서 알림 시간을 직접 고른 경우에는 고른 시간에 알림이 와요.',
+      },
+      {
+        heading: '보유 및 이용 기간',
+        body: '동의를 철회하거나 탈퇴(계정 삭제)할 때까지. 철회하면 동의 기록을 지체 없이 삭제해요.',
+      },
+      {
+        heading: '동의를 거부하거나 철회할 권리',
+        body: '동의하지 않을 수 있고, 동의한 뒤에도 설정 > 알림에서 언제든 무료로 철회할 수 있어요. 동의하지 않거나 철회해도 일기 작성과 AI 답장 등 다른 기능은 그대로 이용할 수 있고, 설정에서 알림 시간을 직접 정해 일기 알림만 받을 수도 있어요.',
       },
     ],
   },

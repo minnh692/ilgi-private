@@ -12,7 +12,9 @@ import { router } from 'expo-router';
 import { useTheme } from '@/theme/useTheme';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/authStore';
-import { onboardingState } from '@/lib/consent';
+import { onboardingState, marketingConsentNotice } from '@/lib/consent';
+import { syncAutoReminder } from '@/lib/notifications';
+import { enterApp } from '@/lib/firstEntry';
 import LogoHorizontal from '../assets/brand/svg/muni-logo-horizontal.svg';
 import LogoHorizontalLight from '../assets/brand/svg/muni-logo-horizontal-light.svg';
 
@@ -26,6 +28,9 @@ export default function OnboardingScreen() {
   const [consentTerms, setConsentTerms] = useState(false);
   const [consentSensitive, setConsentSensitive] = useState(false);
   const [consentAi, setConsentAi] = useState(false);
+  // Optional: marketing notifications (+ separate night-time consent)
+  const [consentMarketing, setConsentMarketing] = useState(!!profile?.consent_marketing_at);
+  const [consentNight, setConsentNight] = useState(!!profile?.consent_marketing_night_at);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const allConsented = consentTerms && consentSensitive && consentAi;
@@ -64,16 +69,39 @@ export default function OnboardingScreen() {
           consent_ai_at: now,
           consent_sensitive_at: now,
           consent_overseas_at: now,
+          consent_marketing_at: consentMarketing ? (existing?.consent_marketing_at ?? now) : null,
+          consent_marketing_night_at:
+            consentMarketing && consentNight ? (existing?.consent_marketing_night_at ?? now) : null,
+          // New opt-ins start on the auto reminder, unless the user already picked a fixed time
+          reminder_auto: consentMarketing
+            ? (existing?.consent_marketing_at ? existing.reminder_auto : !existing?.reminder_time)
+            : false,
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-          onboarding_state: { completed: false, ...prevState, termsAgreedAt: now },
+          // The marketing choice was made on this screen, so the one-time prompt is skipped
+          onboarding_state: { completed: false, ...prevState, termsAgreedAt: now, marketingPromptedAt: now },
         })
         .select()
         .single();
 
       if (error) throw error;
       setProfile(data);
-      // Nickname/birthday setup only once
-      router.replace(existing?.nickname ? '/(tabs)/diary' : '/profile-setup');
+
+      if (data.consent_marketing_at && !existing?.consent_marketing_at) {
+        // Asks for the OS notification permission, then schedules the daily reminder
+        await syncAutoReminder(data, { requestPermission: true }).catch(() => null);
+        await new Promise<void>((resolve) => {
+          Alert.alert(
+            '알림 수신 동의 완료',
+            marketingConsentNotice(data.consent_marketing_at!, !!data.consent_marketing_night_at),
+            [{ text: '확인', onPress: () => resolve() }],
+            { cancelable: false },
+          );
+        });
+      }
+
+      // Nickname/birthday setup only once; then first-time users go straight to writing
+      if (existing?.nickname) await enterApp(userId);
+      else router.replace('/profile-setup');
     } catch (e) {
       console.error('[onboarding] profile upsert failed', { code: (e as { code?: string })?.code });
       Alert.alert('오류', '다시 시도해 주세요.');
@@ -101,7 +129,7 @@ export default function OnboardingScreen() {
 
       if (error) throw error;
       setProfile(data);
-      router.replace('/(tabs)/diary');
+      await enterApp(userId);
     } catch (e) {
       console.error('[onboarding] profile upsert failed', { code: (e as { code?: string })?.code });
       Alert.alert('오류', '다시 시도해 주세요.');
@@ -167,6 +195,37 @@ export default function OnboardingScreen() {
             typography={typography}
             spacing={spacing}
           />
+
+          <ConsentRow
+            optional
+            value={consentMarketing}
+            onChange={(v) => {
+              setConsentMarketing(v);
+              if (!v) setConsentNight(false);
+            }}
+            label="일기 알림과 무늬 소식(광고성 정보)을 받고, 알림 시간을 내가 일기 쓰는 시간에 맞추는 데 동의해요"
+            onViewDetail={() => router.push({ pathname: '/legal/[doc]', params: { doc: 'marketing' } })}
+            colors={colors}
+            typography={typography}
+            spacing={spacing}
+          />
+
+          <ConsentRow
+            optional
+            value={consentNight}
+            onChange={(v) => {
+              setConsentNight(v);
+              if (v) setConsentMarketing(true);
+            }}
+            label="밤(오후 9시~오전 8시)에도 알림을 받을게요"
+            colors={colors}
+            typography={typography}
+            spacing={spacing}
+          />
+
+          <Text style={[styles.consentHint, { color: colors.subtext, fontFamily: typography.fontFamily.regular }]}>
+            동의하면 매일 {consentNight ? '오후 10시' : '오후 8시 30분'}에 알림을 보내고, 일기가 쌓이면 자주 쓰는 시간에 맞춰 드려요. 설정에서 언제든 끌 수 있어요.
+          </Text>
         </View>
 
         <Pressable
@@ -250,6 +309,7 @@ function ConsentRow({
   onChange,
   label,
   onViewDetail,
+  optional,
   colors,
   typography,
   spacing,
@@ -257,7 +317,8 @@ function ConsentRow({
   value: boolean;
   onChange: (v: boolean) => void;
   label: string;
-  onViewDetail: () => void;
+  onViewDetail?: () => void;
+  optional?: boolean;
   colors: ReturnType<typeof useTheme>['colors'];
   typography: ReturnType<typeof useTheme>['typography'];
   spacing: ReturnType<typeof useTheme>['spacing'];
@@ -275,15 +336,17 @@ function ConsentRow({
           {value && <Text style={styles.checkmark}>✓</Text>}
         </View>
         <Text style={[styles.consentLabel, { color: colors.text, fontFamily: typography.fontFamily.regular, flex: 1 }]}>
-          <Text style={{ color: colors.accent }}>[필수] </Text>
+          <Text style={{ color: optional ? colors.subtext : colors.accent }}>{optional ? '[선택] ' : '[필수] '}</Text>
           {label}
         </Text>
       </Pressable>
-      <Pressable onPress={onViewDetail} hitSlop={8} accessibilityRole="link" accessibilityLabel="자세히 보기">
-        <Text style={[styles.viewDetail, { color: colors.subtext, fontFamily: typography.fontFamily.regular }]}>
-          보기
-        </Text>
-      </Pressable>
+      {onViewDetail && (
+        <Pressable onPress={onViewDetail} hitSlop={8} accessibilityRole="link" accessibilityLabel="자세히 보기">
+          <Text style={[styles.viewDetail, { color: colors.subtext, fontFamily: typography.fontFamily.regular }]}>
+            보기
+          </Text>
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -309,6 +372,7 @@ const styles = StyleSheet.create({
   },
   consentsSection: { marginBottom: 8 },
   consentHeader: { fontSize: 17, marginBottom: 12 },
+  consentHint: { fontSize: 13, lineHeight: 20, marginTop: 4, marginLeft: 34 },
   consentRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   consentToggle: { flex: 1, flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   viewDetail: { fontSize: 14, textDecorationLine: 'underline', marginTop: 1 },

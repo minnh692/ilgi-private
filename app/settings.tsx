@@ -12,8 +12,11 @@ import { CRISIS_RESOURCES } from '../config/crisisResources';
 import { PURCHASES_MOCK, restorePurchasesRC, logoutPurchasesUser } from '@/lib/purchases';
 import { FREE_LAUNCH } from '@/lib/plan';
 import { isHardwareAvailable, isLockEnabled, setLockEnabled } from '@/lib/appLock';
-import { hasScheduledReminder } from '@/lib/notifications';
-import { ReminderModal } from '@/components/ReminderModal';
+import {
+  cancelReminder, formatReminderTime, getScheduledReminderTime, scheduleReminder, syncAutoReminder, toTimeString,
+} from '@/lib/notifications';
+import { marketingConsentNotice } from '@/lib/consent';
+import { ReminderModal, type ReminderChoice } from '@/components/ReminderModal';
 import Constants from 'expo-constants';
 import type { Database } from '@/types/database';
 
@@ -90,7 +93,13 @@ export default function SettingsScreen() {
   const reset = useAuthStore((s) => s.reset);
   const [restoring, setRestoring] = useState(false);
   const [reminderModalVisible, setReminderModalVisible] = useState(false);
-  const [reminderTime, setReminderTime] = useState<string | null>(profile?.reminder_time ?? null);
+  // Fixed reminder time the user picked ("HH:MM"; Postgres returns "HH:MM:SS")
+  const [reminderTime, setReminderTime] = useState<string | null>(profile?.reminder_time?.slice(0, 5) ?? null);
+  // Time the auto reminder is currently scheduled at on this device
+  const [autoTime, setAutoTime] = useState<string | null>(null);
+  const marketingOn = !!profile?.consent_marketing_at;
+  const nightOn = !!profile?.consent_marketing_night_at;
+  const autoOn = marketingOn && !!profile?.reminder_auto;
   const [lockEnabled, setLockEnabledState] = useState(false);
   const [lockAvailable, setLockAvailable] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -114,8 +123,10 @@ export default function SettingsScreen() {
   useEffect(() => {
     isHardwareAvailable().then(setLockAvailable);
     isLockEnabled().then(setLockEnabledState);
-    hasScheduledReminder().then((has) => {
-      if (!has) setReminderTime(null);
+    // Reminders are local to the device: show what is actually scheduled here
+    getScheduledReminderTime().then((time) => {
+      if (!time) setReminderTime(null);
+      setAutoTime(time);
     });
   }, []);
 
@@ -126,7 +137,7 @@ export default function SettingsScreen() {
         text: '로그아웃',
         onPress: async () => {
           await supabase.auth.signOut();
-          await Promise.all([logoutPurchasesUser(), clearLastSignInProvider()]);
+          await Promise.all([logoutPurchasesUser(), clearLastSignInProvider(), cancelReminder()]);
           reset();
           // AuthGate in app/_layout.tsx sees the missing session and moves to /login
         },
@@ -157,7 +168,7 @@ export default function SettingsScreen() {
               // The user no longer exists server-side, so only clear the session stored on this
               // device — otherwise it's restored on the next launch and the login screen is skipped
               await supabase.auth.signOut({ scope: 'local' });
-              await Promise.all([logoutPurchasesUser(), clearLastSignInProvider()]);
+              await Promise.all([logoutPurchasesUser(), clearLastSignInProvider(), cancelReminder()]);
               reset();
               router.replace('/');
             } catch {
@@ -244,11 +255,93 @@ export default function SettingsScreen() {
   }
 
   function reminderLabel() {
-    if (!reminderTime) return '꺼짐';
-    const [h, m] = reminderTime.split(':').map(Number);
-    const period = h < 12 ? '오전' : '오후';
-    const displayH = h === 0 ? 12 : h > 12 ? h - 12 : h;
-    return `${period} ${displayH}:${String(m).padStart(2, '0')}`;
+    if (autoOn) return autoTime ? `맞춤 · ${formatReminderTime(autoTime)}` : '맞춤 (알림 권한 필요)';
+    return reminderTime ? formatReminderTime(reminderTime) : '꺼짐';
+  }
+
+  async function updateProfile(patch: Database['public']['Tables']['profiles']['Update']): Promise<ProfileRow | null> {
+    if (!user) return null;
+    const { data } = await supabase.from('profiles').update(patch).eq('id', user.id).select().maybeSingle();
+    if (data) setProfile(data as ProfileRow);
+    return (data as ProfileRow | null) ?? null;
+  }
+
+  function alertNoPermission() {
+    Alert.alert('알림 권한 없음', '기기 설정에서 무늬의 알림을 허용해 주세요.');
+  }
+
+  // Schedules the auto reminder (asking for OS permission if needed) and reflects the result
+  async function startAutoReminder(next: ProfileRow) {
+    const time = await syncAutoReminder(next, { requestPermission: true }).catch(() => null);
+    setAutoTime(time);
+    setReminderTime(null);
+    if (!time) alertNoPermission();
+  }
+
+  async function handleReminderChoice(choice: ReminderChoice) {
+    setReminderModalVisible(false);
+    try {
+      if (choice.mode === 'fixed') {
+        await scheduleReminder(choice.hour, choice.minute);
+        const time = toTimeString(choice);
+        setReminderTime(time);
+        setAutoTime(null);
+        await updateProfile({ reminder_time: time, reminder_auto: false });
+      } else if (choice.mode === 'auto') {
+        const next = await updateProfile({ reminder_time: null, reminder_auto: true });
+        if (!next) throw new Error('profile_update_failed');
+        await startAutoReminder(next);
+      } else {
+        await cancelReminder();
+        setReminderTime(null);
+        setAutoTime(null);
+        await updateProfile({ reminder_time: null, reminder_auto: false });
+      }
+    } catch (err) {
+      if (err instanceof Error && err.message === 'permission_denied') alertNoPermission();
+      else Alert.alert('오류', '알림 설정 중 문제가 생겼어요. 다시 시도해 주세요.');
+    }
+  }
+
+  // Marketing consent (optional). Opting in turns on the auto reminder unless a fixed time is set;
+  // opting out withdraws both consents and stops the auto reminder.
+  async function handleMarketingToggle(value: boolean) {
+    if (value) {
+      const now = new Date().toISOString();
+      const next = await updateProfile({ consent_marketing_at: now, reminder_auto: !reminderTime });
+      if (!next) {
+        Alert.alert('오류', '다시 시도해 주세요.');
+        return;
+      }
+      if (next.reminder_auto) await startAutoReminder(next);
+      Alert.alert('알림 수신 동의 완료', marketingConsentNotice(now, !!next.consent_marketing_night_at));
+    } else {
+      const wasAuto = autoOn;
+      const next = await updateProfile({
+        consent_marketing_at: null,
+        consent_marketing_night_at: null,
+        reminder_auto: false,
+      });
+      if (!next) {
+        Alert.alert('오류', '다시 시도해 주세요.');
+        return;
+      }
+      if (wasAuto) {
+        await cancelReminder();
+        setAutoTime(null);
+      }
+      Alert.alert('수신 동의 철회', '광고성 정보 수신 동의를 철회했어요. 더 이상 맞춤 알림과 소식을 보내지 않아요.');
+    }
+  }
+
+  async function handleNightToggle(value: boolean) {
+    const next = await updateProfile({ consent_marketing_night_at: value ? new Date().toISOString() : null });
+    if (!next) {
+      Alert.alert('오류', '다시 시도해 주세요.');
+      return;
+    }
+    // The auto time may move in or out of the night window
+    if (next.reminder_auto) setAutoTime(await syncAutoReminder(next).catch(() => null));
   }
 
   return (
@@ -407,6 +500,40 @@ export default function SettingsScreen() {
           typography={typography}
           spacing={spacing}
         />
+        <View style={[styles.row, { paddingVertical: spacing.base, borderBottomColor: colors.border }]}>
+          <Text style={[styles.rowLabel, styles.rowLabelFlex, { color: colors.text, fontFamily: typography.fontFamily.regular }]}>
+            맞춤 알림·소식 받기 (광고성 정보)
+          </Text>
+          <Switch
+            value={marketingOn}
+            onValueChange={handleMarketingToggle}
+            trackColor={{ true: colors.accent }}
+            accessibilityLabel="맞춤 알림과 소식 받기, 광고성 정보 수신 동의"
+          />
+        </View>
+        {marketingOn && (
+          <View style={[styles.row, { paddingVertical: spacing.base, borderBottomColor: colors.border }]}>
+            <Text style={[styles.rowLabel, styles.rowLabelFlex, { color: colors.text, fontFamily: typography.fontFamily.regular }]}>
+              밤에도 받기 (오후 9시~오전 8시)
+            </Text>
+            <Switch
+              value={nightOn}
+              onValueChange={handleNightToggle}
+              trackColor={{ true: colors.accent }}
+              accessibilityLabel="야간 알림 수신 동의"
+            />
+          </View>
+        )}
+        <Text style={[styles.modeDesc, { color: colors.subtext, fontFamily: typography.fontFamily.regular, marginTop: spacing.sm }]}>
+          동의하면 일기를 자주 쓰는 시간에 맞춰 알림을 보내 드려요.{' '}
+          <Text
+            style={{ textDecorationLine: 'underline' }}
+            onPress={() => router.push({ pathname: '/legal/[doc]', params: { doc: 'marketing' } })}
+            accessibilityRole="link"
+          >
+            자세히 보기
+          </Text>
+        </Text>
 
         {/* Security */}
         {lockAvailable && (
@@ -514,20 +641,10 @@ export default function SettingsScreen() {
 
       <ReminderModal
         visible={reminderModalVisible}
-        currentTime={reminderTime}
+        selected={autoOn ? 'auto' : reminderTime}
+        showAuto={marketingOn}
         onDismiss={() => setReminderModalVisible(false)}
-        onSaved={async (time) => {
-          setReminderTime(time);
-          if (user) {
-            const { data } = await supabase
-              .from('profiles')
-              .update({ reminder_time: time })
-              .eq('id', user.id)
-              .select()
-              .maybeSingle();
-            if (data) setProfile(data as ProfileRow);
-          }
-        }}
+        onSelect={handleReminderChoice}
       />
     </SafeAreaView>
   );
@@ -553,6 +670,7 @@ const styles = StyleSheet.create({
   },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: StyleSheet.hairlineWidth },
   rowLabel: { fontSize: 16 },
+  rowLabelFlex: { flex: 1, paddingRight: 12 },
   rowValue: { fontSize: 14 },
   modeLabel: { fontSize: 13, marginTop: 8, marginBottom: 6 },
   modeRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },

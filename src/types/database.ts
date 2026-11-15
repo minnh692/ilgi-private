@@ -26,8 +26,11 @@ export interface Database {
           consent_ai_at: string | null;
           consent_sensitive_at: string | null;
           consent_overseas_at: string | null;
+          consent_marketing_at: string | null;
+          consent_marketing_night_at: string | null;
           timezone: string;
           reminder_time: string | null;
+          reminder_auto: boolean;
           onboarding_state: Json;
           nickname: string | null;
           birth_date: string | null;
@@ -41,8 +44,11 @@ export interface Database {
           consent_ai_at?: string | null;
           consent_sensitive_at?: string | null;
           consent_overseas_at?: string | null;
+          consent_marketing_at?: string | null;
+          consent_marketing_night_at?: string | null;
           timezone?: string;
           reminder_time?: string | null;
+          reminder_auto?: boolean;
           onboarding_state?: Json;
           nickname?: string | null;
           birth_date?: string | null;
@@ -56,8 +62,11 @@ export interface Database {
           consent_ai_at?: string | null;
           consent_sensitive_at?: string | null;
           consent_overseas_at?: string | null;
+          consent_marketing_at?: string | null;
+          consent_marketing_night_at?: string | null;
           timezone?: string;
           reminder_time?: string | null;
+          reminder_auto?: boolean;
           onboarding_state?: Json;
           nickname?: string | null;
           birth_date?: string | null;

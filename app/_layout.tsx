@@ -16,6 +16,7 @@ import { useFonts } from '@/hooks/useFonts';
 import { configurePurchases, loginPurchasesUser } from '@/lib/purchases';
 import { needsConsent } from '@/lib/consent';
 import { isLockEnabled, authenticate } from '@/lib/appLock';
+import { syncAutoReminder } from '@/lib/notifications';
 import LockArt from '../assets/brand/svg/muni-lock.svg';
 
 function LockScreen({ onUnlock }: { onUnlock: () => void }) {
@@ -93,6 +94,17 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (userId) loginPurchasesUser(userId);
   }, [userId]);
+
+  // Keep the auto reminder in step with the user's writing time (also restores it after a
+  // reinstall). Never prompts for permission here; that happens when the user opts in.
+  const autoReminderOn = useAuthStore(
+    (s) => !!s.profile?.consent_marketing_at && !!s.profile.reminder_auto && s.profile.id === s.user?.id,
+  );
+  const nightConsent = useAuthStore((s) => !!s.profile?.consent_marketing_night_at);
+  useEffect(() => {
+    if (!autoReminderOn) return;
+    syncAutoReminder(useAuthStore.getState().profile).catch(() => null);
+  }, [autoReminderOn, nightConsent, userId]);
 
   useEffect(() => {
     const sub = AppState.addEventListener('change', async (nextState) => {

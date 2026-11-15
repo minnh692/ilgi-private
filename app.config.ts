@@ -17,7 +17,7 @@ if (process.env.EAS_BUILD === 'true') {
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
-  name: '무늬',
+  name: '무늬AI',
   slug: 'ilgi',
   extra: {
     ...config.extra,

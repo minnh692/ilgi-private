@@ -9,6 +9,7 @@ import DateTimePicker, { type DateTimePickerEvent } from '@react-native-communit
 import { useTheme } from '@/theme/useTheme';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/authStore';
+import { enterApp } from '@/lib/firstEntry';
 import Pencil from '../assets/brand/svg/muni-pencil.svg';
 
 const NICKNAME_MAX = 20;
@@ -49,8 +50,10 @@ export default function ProfileSetupScreen() {
 
   const trimmed = nickname.trim();
 
-  function leave() {
+  // After onboarding, a user with no entries goes straight to writing the first one
+  async function leave() {
     if (isEdit) router.back();
+    else if (user) await enterApp(user.id);
     else router.replace('/(tabs)/diary');
   }
 
@@ -72,7 +75,7 @@ export default function ProfileSetupScreen() {
         .single();
       if (error) throw error;
       setProfile(data);
-      leave();
+      await leave();
     } catch (e) {
       console.error('[profile-setup] save failed', { code: (e as { code?: string })?.code });
       Alert.alert('오류', '저장하지 못했어요. 다시 시도해 주세요.');

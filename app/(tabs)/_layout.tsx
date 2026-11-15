@@ -1,58 +1,31 @@
-import { Tabs } from 'expo-router';
-import { useColorScheme } from 'react-native';
-import { palette } from '@/theme/tokens';
-import PencilMono from '../../assets/brand/svg/muni-pencil-mono.svg';
-import TabInsights from '../../assets/brand/svg/muni-tab-insights.svg';
-import TabMe from '../../assets/brand/svg/muni-tab-me.svg';
+import { TopTabs } from "expo-router/js-top-tabs";
+import { useTheme } from "@/theme/useTheme";
+import {
+  FloatingTabBar,
+  type FloatingTabBarProps,
+} from "@/components/FloatingTabBar";
+import { MarketingConsentPrompt } from "@/components/MarketingConsentPrompt";
 
+// A swipeable pager (drag left/right between tabs) with the tab bar floating at the bottom.
+// Screens pad their own content with useTabBarSpace() because the bar overlays them.
 export default function TabsLayout() {
-  const scheme = useColorScheme();
-  const dark = scheme === 'dark';
+  const { colors } = useTheme();
 
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarStyle: {
-          backgroundColor: dark ? palette.darkSurface : palette.muzzle,
-          borderTopColor: dark ? palette.darkBorder : palette.borderGray,
-          borderTopWidth: 1,
-        },
-        tabBarActiveTintColor: palette.accent,
-        tabBarInactiveTintColor: dark ? palette.darkSubtext : palette.warmGray,
-        tabBarLabelStyle: {
-          fontFamily: 'Pretendard-Medium',
-          fontSize: 11,
-        },
-      }}
-    >
-      <Tabs.Screen
-        name="diary"
-        options={{
-          title: '일기',
-          tabBarIcon: ({ color, size }) => (
-            <PencilMono width={size} height={size} color={color} />
-          ),
+    <>
+      <TopTabs
+        tabBarPosition="bottom"
+        tabBar={(props: FloatingTabBarProps) => <FloatingTabBar {...props} />}
+        screenOptions={{
+          swipeEnabled: true,
+          sceneStyle: { backgroundColor: colors.background },
         }}
-      />
-      <Tabs.Screen
-        name="insights"
-        options={{
-          title: '인사이트',
-          tabBarIcon: ({ color, size }) => (
-            <TabInsights width={size} height={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: '나',
-          tabBarIcon: ({ color, size }) => (
-            <TabMe width={size} height={size} color={color} />
-          ),
-        }}
-      />
-    </Tabs>
+      >
+        <TopTabs.Screen name="diary" options={{ title: '일기' }} />
+        <TopTabs.Screen name="insights" options={{ title: '인사이트' }} />
+        <TopTabs.Screen name="profile" options={{ title: '나' }} />
+      </TopTabs>
+      <MarketingConsentPrompt />
+    </>
   );
 }

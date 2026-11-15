@@ -1,6 +1,6 @@
-import { View, Text, StyleSheet, Pressable, Modal, Alert } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Modal } from 'react-native';
 import { useTheme } from '@/theme/useTheme';
-import { scheduleReminder, cancelReminder } from '@/lib/notifications';
+import { toTimeString } from '@/lib/notifications';
 
 const PRESETS = [
   { label: '오전 9시', hour: 9, minute: 0 },
@@ -11,39 +11,56 @@ const PRESETS = [
   { label: '오후 10시', hour: 22, minute: 0 },
 ];
 
+export type ReminderChoice =
+  | { mode: 'fixed'; hour: number; minute: number }
+  | { mode: 'auto' }
+  | { mode: 'off' };
+
 interface Props {
   visible: boolean;
-  currentTime: string | null;
+  /** 'auto', a fixed "HH:MM", or null when the reminder is off */
+  selected: string | null;
+  /** The auto option needs marketing consent, so it's only offered to users who gave it */
+  showAuto: boolean;
   onDismiss: () => void;
-  onSaved: (time: string | null) => void;
+  /** The parent schedules the notification and saves the choice */
+  onSelect: (choice: ReminderChoice) => void;
 }
 
-function presetToTimeString(hour: number, minute: number): string {
-  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
-}
-
-export function ReminderModal({ visible, currentTime, onDismiss, onSaved }: Props) {
+export function ReminderModal({ visible, selected, showAuto, onDismiss, onSelect }: Props) {
   const { colors, typography, spacing, radius } = useTheme();
 
-  async function handleSelect(hour: number, minute: number) {
-    try {
-      await scheduleReminder(hour, minute);
-      onSaved(presetToTimeString(hour, minute));
-      onDismiss();
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : '';
-      if (msg === 'permission_denied') {
-        Alert.alert('알림 권한 없음', '설정에서 알림을 허용해 주세요.');
-      } else {
-        Alert.alert('오류', '알림 설정 중 문제가 생겼어요. 다시 시도해 주세요.');
-      }
-    }
-  }
-
-  async function handleOff() {
-    await cancelReminder();
-    onSaved(null);
-    onDismiss();
+  function renderOption(key: string, label: string, isActive: boolean, choice: ReminderChoice, desc?: string) {
+    return (
+      <Pressable
+        key={key}
+        onPress={() => onSelect(choice)}
+        style={[
+          styles.option,
+          {
+            backgroundColor: isActive ? colors.accentLight : 'transparent',
+            borderRadius: radius.md,
+            paddingVertical: spacing.base,
+            paddingHorizontal: spacing.base,
+          },
+        ]}
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        accessibilityState={{ selected: isActive }}
+      >
+        <View style={styles.optionTextWrap}>
+          <Text style={[styles.optionText, { color: isActive ? colors.accent : colors.text, fontFamily: isActive ? typography.fontFamily.semiBold : typography.fontFamily.regular }]}>
+            {label}
+          </Text>
+          {desc && (
+            <Text style={[styles.optionDesc, { color: colors.subtext, fontFamily: typography.fontFamily.regular }]}>
+              {desc}
+            </Text>
+          )}
+        </View>
+        {isActive && <Text style={{ color: colors.accent, fontSize: 16 }}>✓</Text>}
+      </Pressable>
+    );
   }
 
   return (
@@ -54,34 +71,14 @@ export function ReminderModal({ visible, currentTime, onDismiss, onSaved }: Prop
         <Text style={[styles.title, { color: colors.text, fontFamily: typography.fontFamily.semiBold }]}>
           매일 알림 시간
         </Text>
+        {showAuto &&
+          renderOption('auto', '맞춤 시간', selected === 'auto', { mode: 'auto' }, '일기를 자주 쓰는 시간에 맞춰요')}
         {PRESETS.map((p) => {
-          const timeStr = presetToTimeString(p.hour, p.minute);
-          const isActive = currentTime === timeStr;
-          return (
-            <Pressable
-              key={timeStr}
-              onPress={() => handleSelect(p.hour, p.minute)}
-              style={[
-                styles.option,
-                {
-                  backgroundColor: isActive ? colors.accentLight : 'transparent',
-                  borderRadius: radius.md,
-                  paddingVertical: spacing.base,
-                  paddingHorizontal: spacing.base,
-                },
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel={p.label}
-            >
-              <Text style={[styles.optionText, { color: isActive ? colors.accent : colors.text, fontFamily: isActive ? typography.fontFamily.semiBold : typography.fontFamily.regular }]}>
-                {p.label}
-              </Text>
-              {isActive && <Text style={{ color: colors.accent, fontSize: 16 }}>✓</Text>}
-            </Pressable>
-          );
+          const time = toTimeString(p);
+          return renderOption(time, p.label, selected === time, { mode: 'fixed', hour: p.hour, minute: p.minute });
         })}
         <Pressable
-          onPress={handleOff}
+          onPress={() => onSelect({ mode: 'off' })}
           style={[styles.option, { borderRadius: radius.md, paddingVertical: spacing.base, paddingHorizontal: spacing.base }]}
           accessibilityRole="button"
           accessibilityLabel="알림 끄기"
@@ -106,7 +103,9 @@ const styles = StyleSheet.create({
   handle: { width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginTop: 10, marginBottom: 18 },
   title: { fontSize: 17, marginBottom: 8, textAlign: 'center' },
   option: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  optionTextWrap: { flex: 1 },
   optionText: { fontSize: 16 },
+  optionDesc: { fontSize: 13, marginTop: 2 },
   cancelBtn: { alignItems: 'center', marginTop: 8 },
   cancelText: { fontSize: 15 },
 });

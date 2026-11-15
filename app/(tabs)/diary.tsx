@@ -4,6 +4,7 @@ import { Link } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useTheme } from '@/theme/useTheme';
+import { useTabBarSpace } from '@/components/FloatingTabBar';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/authStore';
 import type { Database, MemoryMode } from '@/types/database';
@@ -145,6 +146,7 @@ function groupByDate(entries: EntryWithReply[]): Section[] {
 
 export default function DiaryTab() {
   const { colors, typography, spacing } = useTheme();
+  const tabBarSpace = useTabBarSpace();
   const user = useAuthStore((s) => s.user);
 
   const {
@@ -216,7 +218,7 @@ export default function DiaryTab() {
           renderItem={({ item }) => <EntryCard entry={item} />}
           renderSectionHeader={({ section }) => <DateHeader title={section.title} />}
           stickySectionHeadersEnabled={false}
-          contentContainerStyle={{ paddingTop: spacing.sm, paddingBottom: 100 }}
+          contentContainerStyle={{ paddingTop: spacing.sm, paddingBottom: tabBarSpace + 92 }}
           onEndReached={() => {
             if (hasNextPage && !isFetchingNextPage) fetchNextPage();
           }}
@@ -227,7 +229,7 @@ export default function DiaryTab() {
 
       <Link href="/write" asChild>
         <TouchableOpacity
-          style={StyleSheet.flatten([styles.fab, { backgroundColor: palette.muzzle, borderColor: palette.ink }])}
+          style={StyleSheet.flatten([styles.fab, { bottom: tabBarSpace + 12, backgroundColor: palette.muzzle, borderColor: palette.ink }])}
           accessibilityRole="button"
           accessibilityLabel="새 일기 쓰기"
         >
@@ -261,7 +263,7 @@ const styles = StyleSheet.create({
   emptyPrompt: { fontSize: 16, lineHeight: 25, textAlign: 'center', marginBottom: 10 },
   emptyHint: { fontSize: 14, textAlign: 'center' },
   fab: {
-    position: 'absolute', bottom: 24, right: 24,
+    position: 'absolute', right: 24,
     width: 60, height: 60, borderRadius: 30, borderWidth: 2,
     alignItems: 'center', justifyContent: 'center',
     shadowColor: palette.ink, shadowOffset: { width: 0, height: 4 },

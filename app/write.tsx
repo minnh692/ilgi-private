@@ -11,7 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '@/theme/useTheme';
 import { supabase } from '@/lib/supabase';
@@ -19,6 +19,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useDraftStore } from '@/stores/draftStore';
 import type { MemoryMode } from '@/types/database';
 import { queryClient } from '@/lib/queryClient';
+import { syncAutoReminder } from '@/lib/notifications';
 import { MoodFace, MOOD_VALUES, MOOD_LABELS } from '@/components/MoodFace';
 import { ModeIcon } from '@/components/ModeIcon';
 
@@ -40,6 +41,9 @@ const MEMORY_MODES: { mode: MemoryMode; label: string; desc: string }[] = [
 
 export default function WriteScreen() {
   const { colors, typography, spacing, radius } = useTheme();
+  // `first=1` when opened right after onboarding for the user's first entry
+  const { first } = useLocalSearchParams<{ first?: string }>();
+  const isFirstEntry = first === '1';
   const user = useAuthStore((s) => s.user);
   const profile = useAuthStore((s) => s.profile);
   const { title, content, mood, memoryMode, promptUsed, setTitle, setContent, setMood, setMemoryMode, setPromptUsed, clear } = useDraftStore();
@@ -114,6 +118,8 @@ export default function WriteScreen() {
       clear();
 
       await queryClient.invalidateQueries({ queryKey: ['entries', user.id] });
+      // Re-learn the usual writing time for the auto reminder (no-op without marketing consent)
+      syncAutoReminder(profile).catch(() => null);
       router.replace(`/entry/${entry.id}`);
     } catch (e) {
       Alert.alert('저장 오류', '다시 시도해 주세요.');
@@ -167,6 +173,17 @@ export default function WriteScreen() {
           contentContainerStyle={{ paddingHorizontal: spacing.base, paddingTop: spacing.base }}
           keyboardShouldPersistTaps="handled"
         >
+          {isFirstEntry && (
+            <View style={[styles.firstBanner, { backgroundColor: colors.accentLight, borderRadius: radius.md, marginBottom: spacing.base }]}>
+              <Text style={[styles.firstBannerTitle, { color: colors.text, fontFamily: typography.fontFamily.semiBold }]}>
+                첫 일기를 써 볼까요?
+              </Text>
+              <Text style={[styles.firstBannerBody, { color: colors.text, fontFamily: typography.fontFamily.regular }]}>
+                한두 줄이어도 충분해요. 오늘 있었던 일이나 지금 기분을 편하게 적어 보세요.
+              </Text>
+            </View>
+          )}
+
           {/* Title */}
           <TextInput
             style={[
@@ -218,7 +235,7 @@ export default function WriteScreen() {
             placeholderTextColor={colors.placeholder}
             value={content}
             onChangeText={setContent}
-            autoFocus={false}
+            autoFocus={isFirstEntry}
             textAlignVertical="top"
           />
 
@@ -313,6 +330,9 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 15 },
   headerAction: { fontSize: 16, minWidth: 44, textAlign: 'center' },
+  firstBanner: { padding: 14 },
+  firstBannerTitle: { fontSize: 16, marginBottom: 4 },
+  firstBannerBody: { fontSize: 14, lineHeight: 21 },
   chips: { marginBottom: 16 },
   chip: { paddingHorizontal: 14, paddingVertical: 7, marginRight: 8 },
   chipText: { fontSize: 14 },

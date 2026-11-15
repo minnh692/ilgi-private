@@ -5,6 +5,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link } from 'expo-router';
 import { useTheme } from '@/theme/useTheme';
+import { useTabBarSpace } from '@/components/FloatingTabBar';
 import { useAuthStore } from '@/stores/authStore';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
@@ -162,6 +163,7 @@ function PersonCard({
 
 export default function ProfileTab() {
   const { colors, typography, spacing } = useTheme();
+  const tabBarSpace = useTabBarSpace();
   const user = useAuthStore((s) => s.user);
   const qc = useQueryClient();
 
@@ -382,7 +384,7 @@ export default function ProfileTab() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 48 }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: tabBarSpace + 32 }}>
         {/* Header */}
         <View style={[styles.header, { paddingHorizontal: spacing.base }]}>
           <Text style={[styles.headerTitle, { color: colors.text, fontFamily: typography.fontFamily.bold }]}>
